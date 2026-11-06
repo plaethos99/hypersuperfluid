@@ -1,0 +1,7 @@
+# Operating desktop apps through the Cua driver. Opt-in, because it sees and clicks the screen. Actions wait for a go in
+# Check with me mode, under the gate in the bundle's patch.
+- insert:
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+    - id: cua-driver
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'

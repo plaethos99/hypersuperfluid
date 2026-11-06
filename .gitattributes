@@ -16,3 +16,4 @@ docs/persistence-changes/historical-formats/*.schema.json linguist-generated=tru
 
 # Unified patch blank context lines require their leading space.
 patches/*.patch whitespace=-blank-at-eol
+apps/hypersuperfluid/optional/*.patch whitespace=-blank-at-eol

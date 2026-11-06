@@ -1,0 +1,69 @@
+# Odoo agent configuration. Copy to config/erp-agent.yaml and edit.
+# Secrets are never written here: every *_env field names an environment variable.
+# Relative paths resolve against this file's directory.
+
+connections:
+  # Odoo. Use a dedicated user with read-only access rights and an API key from
+  # Preferences > Account Security > New API Key (keys last at most 3 months).
+  odoo:
+    kind: odoo
+    description: Odoo production (sales, purchasing, invoicing, inventory)
+    url: https://odoo.example.com
+    database: prod
+    username: erp-bot@example.com
+    api_key_env: ODOO_API_KEY
+    protocol: auto              # auto | json2 (Odoo 19+) | xmlrpc (Odoo 18 and older)
+    max_rows: 200
+    entity_denylist: ["hr.*", "res.users*", "ir.*"]
+    # Optional: lets the erp-customize server build fields, view extensions, automation rules, server actions
+    # and scheduled actions here. Uses its own user with Administration / Settings rights; try changes on a test
+    # copy of the database first. Omit this block to keep the connection read-only.
+    # customize:
+    #   username: admin@example.com
+    #   api_key_env: ODOO_ADMIN_API_KEY
+    #   model_allowlist: ["sale.*", "purchase.*", "crm.*", "project.*", "res.partner"]
+    #   model_denylist: ["ir.*", "res.users*", "res.groups*", "account.account*", "account.tax*"]
+
+extract:
+  allowed_dirs: ["../data"]      # exported reports and documents the agent may read
+  allow_private_hosts: false     # keep false unless intranet pages must be read
+  max_bytes: 20000000
+  max_tables: 20
+  max_rows: 500
+
+web:
+  backend: auto                  # auto: Firecrawl when FIRECRAWL_API_KEY is set, built-in fetcher otherwise
+  firecrawl:
+    api_key_env: FIRECRAWL_API_KEY
+    api_url: https://api.firecrawl.dev   # or a self-hosted Firecrawl
+  max_chars: 20000               # text returned by fetch_page
+  crawl_page_chars: 3000         # text per page returned by crawl_site
+  crawl_max_pages: 25
+  crawl_max_depth: 2
+  crawl_max_queued: 500          # URLs one built-in crawl may discover; protects against link-flooding pages
+  crawl_delay_s: 1.0             # built-in crawler pause between requests (robots.txt Crawl-delay wins if larger)
+  crawl_timeout_s: 180
+
+audit:
+  path: ../logs/audit.jsonl
+
+customize:
+  changeset_dir: ../state/changesets   # planned and applied change sets (hold client configuration; not committed)
+  export_dir: ../state/modules         # data modules exported from change sets, and packaged Python modules
+
+# Python module workspaces (odoo_module_* tools in erp-customize): one Git repository of custom addons per client.
+# Modules are tested on a test database before anything is committed; pushing goes to staging branches only.
+modules:
+  workspaces: {}
+  #   acme:
+  #     path: ../workspaces/acme-addons       # git clone of the client's addons repository
+  #     description: Acme Ltd custom addons (Odoo.sh)
+  #     odoo_version: "18.0"
+  #     author: Your Name
+  #     license: LGPL-3                       # or OPL-1 for client-only proprietary modules
+  #     runner:                               # how odoo_module_test installs and tests a module
+  #       kind: docker_compose
+  #       compose_file: ../dev/odoo-docker/docker-compose.yml
+  #       database: superfluid_modules       # its own test database: tested modules stay installed there
+  #     push_remote: origin                   # Odoo.sh repository remote; omit to disable pushing
+  #     protected_branches: [main, master, production]

@@ -1,0 +1,10 @@
+# A browser the agent operates, through Playwright MCP. Opt-in, because the provider opens a connection for every session
+# as it starts. HSF_BROWSER_PATH selects a Chromium, such as Microsoft Edge; HSF_BROWSER_HEADLESS=1 hides the window.
+# Page actions wait for a go in Check with me mode, under the gate in the bundle's patch.
+- insert:
+    - id: browser-use
+      name: '@deepseek-ai/dsh-browser-use'
+    - id: playwright
+      name: '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp'
+      config: !!js >-
+        ({ mode: 'launch', headless: process.env.HSF_BROWSER_HEADLESS === '1', ...process.env.HSF_BROWSER_PATH ? { executablePath: process.env.HSF_BROWSER_PATH } : {} })

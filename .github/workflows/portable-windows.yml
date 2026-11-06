@@ -1,0 +1,85 @@
+# Builds Hypersuperfluid for Windows x64: a portable zip that keeps all state in its own folder, and an installer.
+# Both are unsigned. Run it from the Actions tab; pushing a tag such as v0.2.2 also publishes both to a release.
+name: Portable Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: portable-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build:artifacts
+      # Local packaging settings. There are no secrets in them: the update origins are placeholders, so update
+      # checks in this build fail harmlessly.
+      - name: Write packaging settings
+        shell: pwsh
+        run: |
+          $releaseId = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+          @(
+            'DSH_DESKTOP_APP_ID=com.hypersuperfluid.desktop'
+            'DSH_DESKTOP_AUTO_UPDATE_ENV=test'
+            'DOWNLOAD_TEST_ORIGIN=https://updates.example.invalid'
+            "DOWNLOAD_TEST_RELEASE_ID=$releaseId"
+            'DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://updates.example.invalid'
+            'DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://updates.example.invalid'
+            "DSH_DESKTOP_MANDATORY_UPDATE_CONFIG='{""allowedAuthOrigins"":[""https://updates.example.invalid""]}'"
+            'DSH_DESKTOP_WINDOWS_CER_FILE='
+            'DSH_DESKTOP_WINDOWS_SIGNTOOL='
+            'DSH_DESKTOP_WINDOWS_KEY_CONTAINER='
+            'DSH_DESKTOP_WINDOWS_TOKEN_PIN='
+            'DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_CONCURRENCY=4'
+            'DSH_DESKTOP_WINDOWS_COMPRESSION_LEVEL=3'
+          ) | Set-Content -Path apps/desktop/.env.windows -Encoding utf8NoBOM
+      - name: Package
+        run: pnpm run package:desktop:win:x64:unsigned
+      - name: Assemble the portable folder and zip it
+        id: portable
+        shell: pwsh
+        run: |
+          $folder = node apps/hypersuperfluid/portable/assemble.mjs
+          $name = Split-Path $folder -Leaf
+          7z a -tzip -mx=7 "dist-portable/$name.zip" "$folder" | Out-Null
+          $installer = Get-ChildItem apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts -Filter 'hypersuperfluid-*-unsigned.exe' | Select-Object -First 1
+          "zip=dist-portable/$name.zip" >> $env:GITHUB_OUTPUT
+          "installer=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          Get-Item "dist-portable/$name.zip", $installer.FullName | ForEach-Object { '{0} {1:N0} MB' -f $_.Name, ($_.Length / 1MB) }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hypersuperfluid-win-x64-portable
+          path: ${{ steps.portable.outputs.zip }}
+          compression-level: 0
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hypersuperfluid-win-x64-installer
+          path: ${{ steps.portable.outputs.installer }}
+          compression-level: 0
+          retention-days: 30
+      - name: Publish to a release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: gh release create "${{ github.ref_name }}" "${{ steps.portable.outputs.zip }}" "${{ steps.portable.outputs.installer }}" --title "Hypersuperfluid ${{ github.ref_name }}" --notes "Unsigned Windows x64 builds. Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start: More info, then Run anyway." --prerelease

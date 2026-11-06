@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.node.base.json",
+  "compilerOptions": {
+    "paths": {},
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": [
+    "lib",
+    "erp"
+  ]
+}

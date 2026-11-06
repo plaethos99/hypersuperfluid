@@ -1,6 +1,6 @@
 {
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
+  "name": "Hypersuperfluid",
+  "short_name": "Hypersuperfluid",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

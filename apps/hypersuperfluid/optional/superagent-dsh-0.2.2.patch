@@ -1,0 +1,102 @@
+diff --git a/src/app/resources.ts b/src/app/resources.ts
+index f19f7423e2..9eff6cc30d 100644
+--- a/src/app/resources.ts
++++ b/src/app/resources.ts
+@@ -1,4 +1,5 @@
+ /** Serves paginated context resources to orchestrator_read so large bodies stay out of model prompts until requested. */
++import type { SessionWireEvent } from '@deepseek-ai/dsh-api-session-controller'
+ import type { SessionId } from '@deepseek-ai/dsh-session'
+ import { UserError, key, latestReport, reached, runningAssignment, threadKey, type Ticket, type Trigger } from '../core/index.ts'
+ import { batchOf, inputMessage, triggerMessage, workerSessionId } from '../executor/dsh.ts'
+@@ -111,8 +112,18 @@ async function sourcePage(read: Read, source: string, fetch: () => Promise<unkno
+ const THREAD_DECISIONS = 5
+ const triggerLine = (trigger: Trigger) => ({ trigger_id: trigger.id, actor: trigger.actor.id, human: trigger.human, at: trigger.at,
+   preview: preview(trigger.text), chars: trigger.text.length, read: `trigger/${trigger.id}` })
++/** Reads a worker Session's whole log, page by page from its end. */
+ async function transcript(host: ResourceHost, ticketId: string) {
+-  return (await host.context.sessionController.inspect(workerSessionId(ticketId) as SessionId)).events
++  const address = { kind: 'session', sessionId: workerSessionId(ticketId) as SessionId } as const
++  const signal = AbortSignal.timeout(30_000)
++  const events: SessionWireEvent[] = []
++  let beforeSeq: number | undefined
++  for (;;) {
++    const page = await host.context.sessionController.events({ address, ...beforeSeq === undefined ? {} : { beforeSeq } }, signal)
++    events.unshift(...page.records.map(record => record.event))
++    if (!page.hasMore || page.records.length === 0) return events
++    beforeSeq = page.records[0]?.event.seq
++  }
+ }
+ 
+ const ROUTES: readonly Route[] = [
+diff --git a/src/app/context.ts b/src/app/context.ts
+index a60684b9a3..d9d746db84 100644
+--- a/src/app/context.ts
++++ b/src/app/context.ts
+@@ -1,8 +1,12 @@
+ /** Built-in prompt sections, role policies, and transcript projections for orchestrator and worker Sessions. */
+ import { bundledSkills, promptFile } from './skill-files.ts'
+-import type { SessionEvent } from '@deepseek-ai/dsh-session'
++import { z } from 'zod'
+ export { textPage } from './cards.ts'
+ 
++/** A message as the Session controller's wire events carry it; unknown block kinds pass through. */
++const WireMessage = z.object({ role: z.string(), content: z.array(z.looseObject({ type: z.string(), text: z.string().optional() })) })
++const WireMessageHolder = z.object({ message: WireMessage })
++
+ /** Built-in host-delivery and tool-usage rules shared by all Sessions; a team may override them (`builtInParts`). */
+ export const sharedPrompt = promptFile('shared')
+ export const masterPrompt = promptFile('orchestrator')
+@@ -26,8 +30,10 @@ export const handoffPolicy = (role: 'orchestrator' | 'worker'): string => `${han
+ export const autoMergeThreshold = (lines: number): string => `it changes fewer than ${lines} lines (additions plus deletions);`
+ 
+ /** Retains message content while omitting streamed chunks, usage accounting, and reasoning blocks. */
+-export function transcriptEntry(event: SessionEvent) {
++export function transcriptEntry(event: { readonly type: string, readonly data: unknown }) {
+   if (event.type !== 'user/message' && event.type !== 'tool/result' && event.type !== 'assistant/message') return undefined
+-  const message = event.type === 'user/message' ? event.data : event.data.message
++  const parsed = (event.type === 'user/message' ? WireMessage : WireMessageHolder.transform(holder => holder.message)).safeParse(event.data)
++  if (!parsed.success) return undefined
++  const message = parsed.data
+   return { type: event.type, message: { role: message.role, content: message.content.filter(block => block.type !== 'reasoning') } }
+ }
+diff --git a/src/app/http.ts b/src/app/http.ts
+index 13c0115e7b..b21a447e3e 100644
+--- a/src/app/http.ts
++++ b/src/app/http.ts
+@@ -234,7 +234,7 @@ export function registerHttp(ctx: Context, runtime: HttpHost): () => void {
+     ctx.webServer.register({ kind: 'prefix', path: '/orchestrator', handler: async (req, res) => {
+       const url = new URL(req.url ?? '/', 'http://localhost')
+       if (!url.pathname.startsWith('/orchestrator/api/')) { res.writeHead(404); res.end(); return }
+-      if (!sameOrigin(req, ctx.webServer.port)) { json(res, 403, { error: 'Same-origin management request required' }); return }
++      if (ctx.webServer.port === undefined || !sameOrigin(req, ctx.webServer.port)) { json(res, 403, { error: 'Same-origin management request required' }); return }
+       try {
+         await runtime.ready
+         const route = match(table, req.method ?? 'GET', url.pathname.slice('/orchestrator/api/'.length).split('/'))
+diff --git a/src/client/deployment.tsx b/src/client/deployment.tsx
+index a345811d58..74501d6af6 100644
+--- a/src/client/deployment.tsx
++++ b/src/client/deployment.tsx
+@@ -45,8 +45,8 @@ export function DeploymentPage({ setup, form, accounts: showAccounts }: { setup:
+       return { revision: revision + 1, restarting: false }
+     } })
+   const accounts = setup.accounts
+-  // Remote browsers (`memory` mode) are read-only; `unavailable` indicates `dsh-superagent` is still starting.
+-  const readOnlyHint = !form ? t('deploymentNoForms') : snapshot?.mode === 'memory' ? t('deploymentReadOnly')
++  // `unavailable` indicates `dsh-superagent` is still starting.
++  const readOnlyHint = !form ? t('deploymentNoForms')
+     : snapshot?.status === 'loading' ? t('loading') : snapshot?.status === 'unavailable' ? t('deploymentUnavailable')
+     : !editable ? t('deploymentReadOnly') : undefined
+   const limit = (key: typeof MACHINE_LIMITS[number], label: string) => <Field label={label}>
+diff --git a/tests/fixtures/host.ts b/tests/fixtures/host.ts
+index 70ace2effa..e541d84263 100644
+--- a/tests/fixtures/host.ts
++++ b/tests/fixtures/host.ts
+@@ -231,7 +231,7 @@ export async function startRuntime(seed?: (store: Store) => void) {
+     }),
+     selectModel: vi.fn(async () => {}), resolveAgent: vi.fn(resolveDefault), rename: vi.fn(async () => {}),
+     prompt: vi.fn(() => { throw new Error('Plugin delivery must not use user RPC') }),
+-    inspect: vi.fn(async () => ({ events: [] })),
++    events: vi.fn(async () => ({ records: [], hasMore: false, cursor: 0 })),
+   }
+   const reader = { read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} }
+   const persistence = { flush: vi.fn(async () => {}), open: vi.fn(async () => reader) }
