@@ -2,6 +2,7 @@
  * The Hypersuperfluid brand, browser half: the sidebar mark and name, the home-screen mark and headline, the welcome
  * text, and the tab title and icon. DSH's own colours stay. Every contribution is an owned effect, so unloading the
  * plugin restores the previous state. The images are generated into `brand-assets.ts` by `branding/render-brand.mjs`.
+ * It also adds Settings → Subscriptions (`subscriptions.ts`).
  * @module hypersuperfluid/client
  */
 
@@ -10,8 +11,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { HeroBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { LanguageRegistration, LocaleDict } from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: the settings shell's SlotMap merge (the 'settings.section' entry).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { createElement as h } from 'react'
 import { BRAND, EMBLEM, SMALL_MARK } from './brand-assets.ts'
+import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
 
 /** Services this plugin needs. */
 export const inject = ['slots', 'locale']
@@ -110,4 +114,14 @@ export function apply(ctx: Context): void {
     }
   }
   ctx.effect(brandDocument, 'hsf-brand: document title, favicon and style')
+  ctx.effect(() => {
+    const style = document.createElement('style')
+    style.dataset.hsfSubscriptions = ''
+    style.textContent = SUBSCRIPTIONS_STYLE
+    document.head.appendChild(style)
+    return () => { style.remove() }
+  }, 'hsf-subscriptions: style')
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section', id: 'hsf-subscriptions', order: 15, label: () => 'Subscriptions',
+  }, SubscriptionsSection))
 }

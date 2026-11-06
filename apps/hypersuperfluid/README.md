@@ -78,7 +78,7 @@ pnpm --dir apps/desktop run render:tray-icon
 
 A local server with no authentication still needs a placeholder key.
 
-**Subscriptions.** The agent drives each vendor's own CLI over the Agent Client Protocol. The CLI keeps its own login, and this bundle never reads or copies a token. Sign in once in a terminal:
+**Subscriptions.** The agent drives each vendor's own CLI over the Agent Client Protocol. The CLI keeps its own login, and this bundle never reads or copies a token. In the desktop app, **Settings → Subscriptions** shows whether each CLI is installed and signed in; **Sign in** opens the vendor's own login in a terminal window, and **Check** opens a session without sending a prompt, so it spends nothing. You can also sign in yourself in a terminal:
 
 | Tool | CLI | Sign in |
 |---|---|---|
@@ -88,7 +88,7 @@ A local server with no authentication still needs a placeholder key.
 | `gemini_cli` | Gemini CLI | run `gemini` once |
 | `hermes` | Hermes Agent, with its `acp` extra | `hermes model` |
 
-A tool appears only when its CLI is installed. `workers_status` shows what answers, and spends nothing.
+A tool appears only when its CLI is installed, and the agent picks up a newly installed CLI after a restart. `workers_status` shows what answers, and spends nothing.
 
 A worker is not a model in the picker: it runs its own agent loop in the working folder and returns one final answer. With `permission: allow` it can change files under its own permissions, outside DSH's sandbox, so its tool waits for a go in Check with me mode.
 

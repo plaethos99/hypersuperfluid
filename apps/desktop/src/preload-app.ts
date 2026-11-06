@@ -12,6 +12,7 @@ import { syncWindowsAppearance } from './preload-windows.ts'
 import { installMandatoryUpdateOverlay } from './preload-mandatory-overlay.ts'
 import { createDesktopBrowserBridge } from './preload-browser.ts'
 import type { FileDragHandle } from '@deepseek-ai/dsh-util-file-drag'
+import type { SubscriptionCheck, SubscriptionInfo, SubscriptionSignIn } from './subscription-types.ts'
 
 function createProductApi(): DshDesktopProductApi {
   return {
@@ -34,6 +35,11 @@ function createProductApi(): DshDesktopProductApi {
       }) },
     },
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
+    subscriptions: {
+      list: () => ipcRenderer.invoke(DESKTOP_IPC.subscriptionsList) as Promise<readonly SubscriptionInfo[]>,
+      check: id => ipcRenderer.invoke(DESKTOP_IPC.subscriptionsCheck, id) as Promise<SubscriptionCheck>,
+      signIn: id => ipcRenderer.invoke(DESKTOP_IPC.subscriptionsSignIn, id) as Promise<SubscriptionSignIn>,
+    },
     keyboard: {
       closeWindow: revision => ipcRenderer.invoke(DESKTOP_IPC.shortcutsCloseWindow, revision) as Promise<void>,
       subscribe: (listener) => {

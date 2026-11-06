@@ -29,6 +29,7 @@ import {
 } from 'electron'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { keyVaultPaths, openKeyVault } from './key-vault.ts'
+import { createSubscriptions } from './subscriptions.ts'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
@@ -952,6 +953,20 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
     assertProductSender(event)
     return readDeviceInfo()
+  })
+  // Settings → Subscriptions. The renderer names a tool id; the commands are constants in subscriptions.ts.
+  const subscriptions = createSubscriptions({ env: () => hostEnvironment })
+  ipcMain.handle(DESKTOP_IPC.subscriptionsList, (event) => {
+    assertProductSender(event)
+    return subscriptions.list()
+  })
+  ipcMain.handle(DESKTOP_IPC.subscriptionsCheck, (event, id: unknown) => {
+    assertProductSender(event)
+    return subscriptions.check(id)
+  })
+  ipcMain.handle(DESKTOP_IPC.subscriptionsSignIn, (event, id: unknown) => {
+    assertProductSender(event)
+    return subscriptions.signIn(id)
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)

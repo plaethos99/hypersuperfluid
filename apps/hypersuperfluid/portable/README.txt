@@ -51,7 +51,9 @@ on this computer.
 Optional
 --------
 - Subscription workers appear when their command-line tools are installed and signed in on this PC:
-  grok (Grok Build), agy (Google Antigravity), opencode (OpenCode), gemini (Gemini CLI).
+  grok (Grok Build), agy (Google Antigravity), opencode (OpenCode), gemini (Gemini CLI), hermes (Hermes Agent).
+  Settings > Subscriptions shows each one's status; Sign in opens the vendor's own login in a terminal window.
+  Restart the app after installing one.
 - ERP tools need uv or Python 3.12 or newer on this PC. Put data\home\hsf\erp\erp-agent.yaml in place to connect an
   ERP; the template is erp\config\erp-agent.example.yaml in the app's resources.
 

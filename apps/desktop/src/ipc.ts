@@ -7,6 +7,7 @@ import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-c
 import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 import type { DesktopFileDrag } from '@deepseek-ai/dsh-util-file-drag'
+import type { SubscriptionsBridge } from './subscription-types.ts'
 
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
@@ -32,6 +33,9 @@ export const DESKTOP_IPC = {
   fileDragStart: 'dsh-desktop:file-drag-start',
   fileDragRelease: 'dsh-desktop:file-drag-release',
   deviceInfo: 'dsh-desktop:device-info',
+  subscriptionsList: 'dsh-desktop:subscriptions-list',
+  subscriptionsCheck: 'dsh-desktop:subscriptions-check',
+  subscriptionsSignIn: 'dsh-desktop:subscriptions-sign-in',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
   localeChanged: 'dsh-desktop:locale-changed',
   updatesChannelGet: 'dsh-desktop:updates-channel-get',
@@ -102,6 +106,8 @@ export interface DshDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  /** Hypersuperfluid's subscription CLIs: status, and a Sign in button that opens the vendor's own login. */
+  readonly subscriptions: SubscriptionsBridge
   readonly updates: {
     readonly channels: DesktopChannelBridge
     status(): Promise<DesktopUpdatePresentation>
