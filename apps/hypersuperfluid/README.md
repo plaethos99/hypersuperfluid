@@ -50,7 +50,7 @@ pnpm --dir apps/desktop run render:tray-icon
 
 ## Models
 
-**API keys.** Put them in the environment or a root `.env`, or in Settings > Models. In the portable app, drop them in a `keys.env` beside `Hypersuperfluid.cmd` instead: at first start they are encrypted for the Windows account (DPAPI through Electron `safeStorage`) into `datahomehsfkeys.vault`, the file is overwritten and deleted, and the keys reach only the host process, in memory. `assemble.mjs --keys <file>` seals a keys file into a build you hand out, so its zip holds no plain-text key; the seal is built into the app, so treat such keys as recoverable by anyone who has the build, and give them spending limits.
+**API keys.** Put them in the environment or a root `.env`, or in Settings > Models. In the portable app, drop them in a `keys.env` beside `Hypersuperfluid.cmd` instead: at first start they are encrypted for the Windows account (DPAPI through Electron `safeStorage`) into `data\home\hsf\keys.vault`, the file is overwritten and deleted, and the keys reach only the host process, in memory. `assemble.mjs --keys <file>` seals a keys file into a build you hand out, so its zip holds no plain-text key; the seal is built into the app, so treat such keys as recoverable by anyone who has the build, and give them spending limits.
 
 | Provider | Variable |
 |---|---|
