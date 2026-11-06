@@ -32,6 +32,16 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm run build:artifacts
+      # The repository build covers packages/*/* and apps/cli only, and lib/ is git-ignored, so without this step the
+      # bundle ships without its code and the app starts as plain DeepSeek Harness.
+      - name: Build the Hypersuperfluid bundle
+        shell: pwsh
+        run: |
+          pnpm --filter @deepseek-ai/dsh-hypersuperfluid run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $missing = 'brand.js', 'client.js', 'workers.js', 'handoff.js', 'portal.js' |
+            Where-Object { -not (Test-Path "apps/hypersuperfluid/lib/$_") }
+          if ($missing) { Write-Error "The Hypersuperfluid bundle build is missing lib/$($missing -join ', lib/')"; exit 1 }
       # Local packaging settings. There are no secrets in them: the update origins are placeholders, so update
       # checks in this build fail harmlessly.
       - name: Write packaging settings
@@ -55,6 +65,17 @@ jobs:
           ) | Set-Content -Path apps/desktop/.env.windows -Encoding utf8NoBOM
       - name: Package
         run: pnpm run package:desktop:win:x64:unsigned
+      - name: Check the app carries the Hypersuperfluid bundle
+        shell: pwsh
+        run: |
+          $tarball = Get-ChildItem apps/desktop/.desktop-build/targets/win-x64/packed -Recurse -Filter 'deepseek-ai-dsh-hypersuperfluid-*.tgz' |
+            Select-Object -First 1
+          if ($null -eq $tarball) { Write-Error 'No Hypersuperfluid bundle tarball was packed'; exit 1 }
+          $files = tar -tzf $tarball.FullName
+          foreach ($file in 'package/lib/brand.js', 'package/lib/client.js', 'package/cordis.patch.yml') {
+            if ($files -notcontains $file) { Write-Error "$($tarball.Name) lacks $file"; exit 1 }
+          }
+          "$($tarball.Name): $($files.Count) files, including lib/brand.js and lib/client.js"
       - name: Assemble the portable folder and zip it
         id: portable
         shell: pwsh
@@ -83,7 +104,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
+        # The files are named after the tag, which can move ahead of the package version for a rebuilt release.
         run: |
-          gh release create "${{ github.ref_name }}" "${{ steps.portable.outputs.zip }}" "${{ steps.portable.outputs.installer }}" `
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $zip = "dist-portable/Hypersuperfluid-$version-win-x64-portable.zip"
+          $setup = "dist-portable/Hypersuperfluid-$version-win-x64-setup-unsigned.exe"
+          if ((Split-Path '${{ steps.portable.outputs.zip }}' -Leaf) -ne (Split-Path $zip -Leaf)) { Copy-Item '${{ steps.portable.outputs.zip }}' $zip }
+          Copy-Item '${{ steps.portable.outputs.installer }}' $setup
+          gh release create "${{ github.ref_name }}" $zip $setup `
             --title "Hypersuperfluid ${{ github.ref_name }}" --prerelease `
             --notes "Unsigned Windows x64 builds. Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start; choose More info, then Run anyway."
