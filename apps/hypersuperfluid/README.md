@@ -30,7 +30,11 @@ node apps/hypersuperfluid/portable/assemble.mjs
 
 The folder lands in `dist-portable/`. Start it with `Hypersuperfluid.cmd`, which keeps sessions, settings, memory, skills and browser data under the folder's `data\`.
 
-DeepSeek Harness's own workflows stay in `.github/workflows/` but are disabled in this repository's Actions settings, because they need DeepSeek's private runners and secrets. Re-enable one with `gh workflow enable <file>`.
+DeepSeek Harness's own workflows stay in `.github/workflows/`. Most run only on `master`, on pull requests or by hand, and they need DeepSeek's runners and secrets. `e2e.yml` also runs on pushes to `main` and nightly, and fails here without its DeepSeek secret. To turn it off, disable it in the Actions tab, or:
+
+```bash
+gh workflow disable e2e.yml
+```
 
 ## Branding
 
