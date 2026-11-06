@@ -83,4 +83,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: gh release create "${{ github.ref_name }}" "${{ steps.portable.outputs.zip }}" "${{ steps.portable.outputs.installer }}" --title "Hypersuperfluid ${{ github.ref_name }}" --notes "Unsigned Windows x64 builds. Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start: More info, then Run anyway." --prerelease
+        run: |
+          gh release create "${{ github.ref_name }}" "${{ steps.portable.outputs.zip }}" "${{ steps.portable.outputs.installer }}" `
+            --title "Hypersuperfluid ${{ github.ref_name }}" --prerelease `
+            --notes "Unsigned Windows x64 builds. Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start; choose More info, then Run anyway."
