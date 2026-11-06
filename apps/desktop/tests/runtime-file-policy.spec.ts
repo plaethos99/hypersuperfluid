@@ -84,6 +84,11 @@ it('applies package-specific rules inside scoped and nested dependency container
   expect(desktopRuntimeFileExclusion('outer/fs-ext/build/Release/fs_ext.lib', windows, 'win32-x64')).toBeUndefined()
 })
 
+it('omits empty directory placeholders, which electron-builder leaves out of the archive', () => {
+  expect(desktopRuntimeFileExclusion('fastmcp/node_modules/undici/lib/llhttp/.gitkeep', windows, 'win32-x64')).toBe('empty directory placeholder')
+  expect(desktopRuntimeFileExclusion('undici/lib/llhttp/keep.js', windows, 'win32-x64')).toBeUndefined()
+})
+
 it('retains native prebuilds for the selected macOS architecture', () => {
   const mac = { platform: 'darwin' as const, arch: 'arm64' }
   expect(desktopRuntimeFileExclusion('node-pty/prebuilds/darwin-arm64/pty.node', mac, 'darwin-arm64')).toBeUndefined()

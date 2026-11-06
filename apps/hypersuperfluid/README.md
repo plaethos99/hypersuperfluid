@@ -50,7 +50,7 @@ pnpm --dir apps/desktop run render:tray-icon
 
 ## Models
 
-**API keys.** Put them in the environment or a root `.env`, or in Settings > Models.
+**API keys.** Put them in the environment or a root `.env`, or in Settings > Models. In the portable app, drop them in a `keys.env` beside `Hypersuperfluid.cmd` instead: at first start they are encrypted for the Windows account (DPAPI through Electron `safeStorage`) into `datahomehsfkeys.vault`, the file is overwritten and deleted, and the keys reach only the host process, in memory. `assemble.mjs --keys <file>` seals a keys file into a build you hand out, so its zip holds no plain-text key; the seal is built into the app, so treat such keys as recoverable by anyone who has the build, and give them spending limits.
 
 | Provider | Variable |
 |---|---|
@@ -94,6 +94,36 @@ A worker is not a model in the picker: it runs its own agent loop in the working
 
 Google's Gemini CLI terms forbid using its OAuth login through third-party software, and people report suspended accounts. Launching Google's own `agy` or `gemini` program is a different thing, but Google has not said whether scripted use of it is allowed. Use `GEMINI_API_KEY` for anything you cannot risk.
 
+## Modes
+
+Pick a mode in the new-chat picker. Each has its own persona and points at its skills; all share the working principles, the tools, the approval gate and the early handoff (one YAML anchor in `cordis.patch.yml`).
+
+| Mode | For |
+|---|---|
+| Master operator | Anything; the default |
+| Coding, Software testing, Data engineering | Code, tests and quality, SQL and pipelines |
+| DevOps, AIOps, MLOps | Operations, telemetry and incidents, models in production |
+| Embedded systems | Firmware and hardware bring-up; flashing waits for a yes |
+| ERP: Odoo, SAP, Oracle, Dynamics, ERPNext, NetSuite, Tally | One consultant per ERP; Odoo has the live connection |
+| Career and job search | CareerOps plus Firecrawl research; never submits anything |
+| Research and analysis | Deep, cited research with Firecrawl and data analysis |
+| Office documents | Word, Excel, PowerPoint, PDF, UML and other diagrams |
+| Autopilot | Give it a folder and a goal; it works alone and reports |
+| Guide (plain language) | Step-by-step help from screenshots; serves ask links |
+
+## Share links: ask and agent workflows
+
+Ask the agent to create a link (`portal_share`, which waits for a go). The guest opens it in any browser; nothing of DSH is exposed.
+
+- **Ask link:** the guest types, pastes screenshots and attaches files, and gets step-by-step guidance in plain language from the Guide mode, on `deepseek-flash`, which reads images. The Guide mode has no shell, no file tools and no memory, and its allowlist refuses every other tool, including the ERP and Firecrawl tools.
+- **Agent link:** the guest sends a task and a folder. Each task waits for your approval (`portal_jobs`, also gated), then runs in the Autopilot mode inside its own folder under `<DSH_HOME>/hsf/portal`, and the guest downloads the folder as a ZIP. DSH's Windows sandbox confines writes, not reads, which is why a person approves every task.
+
+Each guest conversation and job is also an ordinary session in DSH, so you can watch, steer or stop it. The page server listens on 127.0.0.1:3311; a [Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) publishes it (`winget install --id Cloudflare.cloudflared`, no account). Set `tunnel: ngrok` for ngrok, or `publicUrl` for an address you expose yourself, in the `hsf-portal` row. Without a tunnel a link works only on this computer. A quick tunnel gets a new address when the app restarts, so share those links again; links behind a fixed address keep working. Tokens are stored only as hashes, links expire (24 hours by default, 7 days at most), and `portal_stop` ends one at once.
+
+## Handoff before the context fills
+
+When a request uses 70% of the model's context window, below compaction's 80%, the agent is told once to call `handoff`. That writes a detailed handoff to `<working folder>/.hsf/handoffs/` (the goal in the person's words, state, decisions and reasons, files, commands, errors, next steps, open questions, plus the repository state and the model and mode) and opens a new session in the same folder, mode and model that starts from it. The old session ends with a line naming the new one. A session that began from a handoff must grow by another 25% of the window before it hands off again, so handoffs cannot chain. Compaction checkpoints are saved in the same folder as a safety net. Set `HSF_HANDOFF_THRESHOLD` (for example `0.6`) to change the share; `0` turns the notice off. The person can also ask for a handoff at any time.
+
 ## What it does
 
 **Learns (from Hermes Agent).** `memory` keeps small, scanned stores of facts about the person and the environment, which reach new sessions as an appended, logged message, so the cached prompt prefix stays intact. `skill_manage` writes class-level skills, which must be read before they are changed. Every 10 messages or 15 tool calls, a background fork reviews the conversation and may use only `memory`, `skill_view` and `skill_manage`. A daily curator marks agent-written skills stale after 30 idle days and archives them after 90, after taking a snapshot. It never deletes, and it skips pinned skills and skills a person wrote. `learning_run` does any of this on demand. State lives in `<DSH_HOME>/hsf`, and the activity log is `learning.log`.
@@ -102,9 +132,15 @@ Google's Gemini CLI terms forbid using its OAuth login through third-party softw
 
 **Works like an employee (from the Odoo agent and superagent).** The persona takes as little of your attention as it can, reports failures as failures, and stops before anything hard to undo. In the Check with me permission mode, hand-offs and ERP changes wait for a message ending in "go" or a Go answer, and committing ERP calls wait for Submit. Full access and Auto skip both. Task pace lowers reasoning effort for mechanical work and raises it for hard problems, on routes that support effort.
 
-**Knows the domains.** Skills cost one catalog line until read: `software-engineering`, `devops-operations`, `systems-administration`, `embedded-systems`, `odoo-*`, and `erp-*` for Odoo, SAP, Oracle, Dynamics, ERPNext, NetSuite and Tally.
+**Knows the domains.** Skills cost one catalog line until read: `software-engineering`, `software-testing`, `data-engineering`, `devops-operations`, `aiops`, `mlops`, `systems-administration`, `embedded-systems`, `research-analysis`, `office-documents`, `job-search`, `autonomous-work`, `plain-language-guide`, `odoo-*`, and `erp-*` for Odoo, SAP, Oracle, Dynamics, ERPNext, NetSuite and Tally.
 
 **Connects to ERP.** Copy `erp/config/erp-agent.example.yaml` to `<DSH_HOME>/hsf/erp/erp-agent.yaml`, put keys in `.env` beside it, and restart. The first start builds a Python environment of about 250 MB, which needs `uv` or Python 3.12 or newer. Until then nothing starts. This adds 8 read tools and 19 customization and module tools. **Live connections exist for Odoo only.** For the other ERPs the agent has knowledge skills and whatever browser or database access you give it.
+
+**Researches deeply.** The Firecrawl MCP server is bundled (`firecrawl-mcp` 3.33.4) and runs with the app's own Node. Its tools search, scrape, map, crawl and extract whole sites as Markdown, and read papers and GitHub. Set `FIRECRAWL_API_KEY` for your Firecrawl plan, or `FIRECRAWL_API_URL` for a self-hosted Firecrawl; without either it uses Firecrawl's keyless tier. The key is passed as a credential reference and redacted from diagnostics. Its acting tools (`firecrawl_interact` and the monitor tools) wait for a go.
+
+**Runs your job search.** The career mode uses [CareerOps](https://github.com/career-ops-hq/career-ops) (MIT), found as `career-ops` beside the portable app, under `<DSH_HOME>/hsf`, in a parent folder of the working folder, or at `CAREER_OPS_INSTALL`. `career_ops_status` reports what its first run needs (`npm install`, then building your CV and profile by chatting). CareerOps' own files are the only source of facts about you, and nothing is ever submitted for you.
+
+**Makes office files.** The office mode uses DSH's Word, Excel and PowerPoint skills (bundled in the desktop app) and `office_tools`: `setup` builds a small Python environment once (pypdf, pdfplumber, reportlab, matplotlib; needs `uv` or Python 3.10+) with `pdf_tool.py` for merging, splitting, rotating, watermarking, encrypting, filling forms and extracting text and tables; `render` turns Graphviz DOT into SVG or PNG with bundled WebAssembly builds of Graphviz and resvg, and PlantUML into SVG when Java and a PlantUML jar are present.
 
 **Optional.**
 - **Browser:** off by default because it opens a connection per session. `HSF_BROWSER_PATH` selects a specific Chromium.
@@ -135,6 +171,9 @@ In the desktop app, use `--profile desktop` with the app quit, and paste an over
 | `src/workers.ts` | Finds CLIs and mounts ACP providers |
 | `src/erp.ts`, `erp/` | ERP launcher and Python server |
 | `src/gate.js`, `src/pace.js` | Approval gate and task pace |
+| `src/handoff.ts` | Early handoff and checkpoint saving |
+| `src/portal/`, `src/allowlist.ts` | Share links: page server, tunnel, store, ZIP results; the Guide mode's tool allowlist |
+| `src/firecrawl.ts`, `src/career.ts`, `src/office.ts`, `office/` | Firecrawl server, CareerOps, office tools |
 | `src/client/`, `branding/` | Browser brand plugin and the icon generator |
 | `portable/` | Portable Windows folder launcher and assembler |
 | `skills/` | Expert skills |

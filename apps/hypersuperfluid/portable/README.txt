@@ -13,7 +13,40 @@ This build is not code-signed, so Windows SmartScreen may say "Windows protected
 Choose More info, then Run anyway. Before extracting a downloaded zip, you can instead right-click it,
 choose Properties, tick Unblock, and press OK.
 
-Then open Settings > Models and enter an API key, or add an OpenAI-compatible endpoint under Custom provider.
+API keys
+--------
+Put your keys in a file named keys.env (or .env) in this folder, one per line:
+
+  DEEPSEEK_API_KEY=...
+  OPENROUTER_API_KEY=...
+  FIRECRAWL_API_KEY=...
+
+then start Hypersuperfluid.cmd. On that first start the keys are encrypted for your Windows account and the file is
+overwritten and deleted, so no readable copy stays on disk. The keys never show in Settings, and the agent cannot read
+them. To change a key, drop a new keys.env with just that line; to remove one, write NAME= with nothing after it.
+
+The encrypted keys work only for this Windows account on this PC. After copying the folder to another PC, drop the
+keys file in again. If this folder came with keys.sealed, the person who built it sealed keys into it; they are moved
+into the encrypted store the same way.
+
+You can also enter keys in Settings > Models, or add any OpenAI-compatible endpoint under Custom provider; keys entered
+there are kept in data\home\.env, which is not encrypted.
+
+Modes
+-----
+Pick a mode when you start a chat: Master operator, Coding, Software testing, Data engineering, DevOps, AIOps, MLOps,
+Embedded systems, one per ERP (Odoo, SAP, Oracle, Dynamics, ERPNext, NetSuite, Tally), Career and job search,
+Research and analysis, Office documents, Autopilot, and Guide (plain language).
+
+Career and job search uses CareerOps from the career-ops folder here. Its scripts need Node.js 22 or newer installed
+on this PC (https://nodejs.org); the agent tells you what is missing on first use.
+
+Share links
+-----------
+Ask the agent to "create an ask link" or "create an agent link". Ask links let someone send screenshots and questions
+and get step-by-step help. Agent links take a task and a folder; each task waits for your approval. To reach people
+outside this PC, install cloudflared once (winget install --id Cloudflare.cloudflared); without it a link works only
+on this computer.
 
 Optional
 --------

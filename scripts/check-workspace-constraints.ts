@@ -80,7 +80,7 @@ const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh': ['lib/*.js', 'lib/types/*.d.ts'],
-  '@deepseek-ai/dsh-hypersuperfluid': ['lib', 'cordis.patch.yml', 'optional', 'skills', 'erp', 'README.md', 'THIRD_PARTY.md', 'licenses'],
+  '@deepseek-ai/dsh-hypersuperfluid': ['lib', 'cordis.patch.yml', 'optional', 'skills', 'erp', 'office', 'README.md', 'THIRD_PARTY.md', 'licenses'],
   '@deepseek-ai/dsh-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],

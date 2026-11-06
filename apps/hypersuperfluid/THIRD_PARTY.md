@@ -30,3 +30,17 @@ This package adapts code and text from the projects below. Their full license te
 - **Changes:** plugin names changed. Task pace now leaves a request alone when its route proposes no reasoning effort, so custom endpoints do not fail on an unmapped value.
 
 The bundled ERP knowledge skills name vendors' products for identification only.
+
+## CareerOps
+
+- **Source:** [career-ops-hq/career-ops](https://github.com/career-ops-hq/career-ops), the `career-ops` folder of this workspace, Copyright 2026 Santiago Fernández de Valderrama.
+- **License:** MIT, [licenses/career-ops-LICENSE.txt](licenses/career-ops-LICENSE.txt).
+- **Used in:** the career mode runs it unchanged from its own folder through its `career-ops` skill; `src/career.ts` only finds the install and reports its state. The portable build copies its tracked system files, never a person's data.
+
+## Bundled dependencies
+
+| Package | License | Used for |
+|---|---|---|
+| `firecrawl-mcp` 3.33.4 | MIT | Firecrawl web research tools |
+| `@viz-js/viz` 3.31.0 | MIT; it compiles [Graphviz](https://graphviz.org), which is under the Eclipse Public License 1.0 | Rendering DOT diagrams |
+| `@resvg/resvg-wasm` 2.6.2 | MPL-2.0, used unmodified | Rendering SVG to PNG |

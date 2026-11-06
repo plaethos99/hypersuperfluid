@@ -21,11 +21,14 @@ import {
   nativeImage,
   nativeTheme,
   protocol,
+  safeStorage,
   session,
   shell,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from 'electron'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { keyVaultPaths, openKeyVault } from './key-vault.ts'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
@@ -393,7 +396,26 @@ async function main(): Promise<void> {
     return result.environment
   })
   let hostEnvironment: NodeJS.ProcessEnv = process.env
-  const prepareHostEnvironment = async (): Promise<void> => { hostEnvironment = await loginShell }
+  // Keys dropped beside the portable app are encrypted into the vault and their files deleted; the Host alone receives
+  // them, in memory. A vault failure never blocks startup: the app runs without those keys and says why.
+  const openKeys = (): Record<string, string> => {
+    try {
+      const { env, report } = openKeyVault(keyVaultPaths(resolveDshHome(), process.env.HSF_PORTABLE_ROOT), {
+        available: () => safeStorage.isEncryptionAvailable(),
+        encrypt: plain => safeStorage.encryptString(plain),
+        decrypt: data => safeStorage.decryptString(data),
+      })
+      if (report.imported.length + report.removed.length > 0) {
+        console.info(`desktop key vault: stored ${report.imported.join(', ') || 'nothing'}; removed ${report.removed.join(', ') || 'nothing'}`)
+      }
+      for (const warning of report.warnings) console.warn(`desktop key vault: ${warning}`)
+      return env
+    } catch (error) {
+      console.warn(`desktop key vault: not opened: ${String(error)}`)
+      return {}
+    }
+  }
+  const prepareHostEnvironment = async (): Promise<void> => { hostEnvironment = { ...await loginShell, ...openKeys() } }
   let quitting = false
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined

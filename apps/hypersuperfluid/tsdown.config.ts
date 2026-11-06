@@ -11,6 +11,12 @@ const host = {
     erp: 'src/erp.ts',
     gate: 'src/gate.js',
     pace: 'src/pace.js',
+    firecrawl: 'src/firecrawl.ts',
+    career: 'src/career.ts',
+    handoff: 'src/handoff.ts',
+    office: 'src/office.ts',
+    portal: 'src/portal/index.ts',
+    allowlist: 'src/allowlist.ts',
   },
   outDir: 'lib',
   format: 'esm',
@@ -19,7 +25,8 @@ const host = {
   target: 'es2024',
   dts: false,
   clean: true,
-  deps: { neverBundle: [/^@deepseek-ai\//, 'zod'] },
+  // The WebAssembly packages load their .wasm beside their own files, and firecrawl-mcp is started by path.
+  deps: { neverBundle: [/^@deepseek-ai\//, 'zod', 'firecrawl-mcp', '@viz-js/viz', '@resvg/resvg-wasm'] },
 } as const
 
 /**

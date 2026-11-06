@@ -22,7 +22,13 @@
     "./erp": "./lib/erp.js",
     "./gate": "./lib/gate.js",
     "./pace": "./lib/pace.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./firecrawl": "./lib/firecrawl.js",
+    "./career": "./lib/career.js",
+    "./handoff": "./lib/handoff.js",
+    "./office": "./lib/office.js",
+    "./portal": "./lib/portal.js",
+    "./allowlist": "./lib/allowlist.js"
   },
   "files": [
     "lib",
@@ -30,6 +36,7 @@
     "optional",
     "skills",
     "erp",
+    "office",
     "README.md",
     "THIRD_PARTY.md",
     "licenses"
@@ -56,16 +63,28 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-agent": "workspace:*",
+    "@deepseek-ai/dsh-agent-preset-registry": "workspace:*",
+    "@deepseek-ai/dsh-api-session-controller": "workspace:*",
+    "@deepseek-ai/dsh-attachment": "workspace:*",
+    "@deepseek-ai/dsh-compaction": "workspace:*",
+    "@deepseek-ai/dsh-credentials": "workspace:*",
     "@deepseek-ai/dsh-jobs": "workspace:*",
     "@deepseek-ai/dsh-llm": "workspace:*",
     "@deepseek-ai/dsh-mcp-client": "workspace:*",
     "@deepseek-ai/dsh-session": "workspace:*",
     "@deepseek-ai/dsh-session-projection": "workspace:*",
+    "@deepseek-ai/dsh-session-title": "workspace:*",
     "@deepseek-ai/dsh-skill-filesystem": "workspace:*",
     "@deepseek-ai/dsh-subagent": "workspace:*",
     "@deepseek-ai/dsh-subagent-acp": "workspace:*",
+    "@deepseek-ai/dsh-token-meter": "workspace:*",
     "@deepseek-ai/dsh-tools": "workspace:*",
+    "@deepseek-ai/dsh-working-directory": "workspace:*",
+    "@deepseek-ai/dsh-workspace": "workspace:*",
     "@deepseek-ai/schemastery": "workspace:~",
+    "@resvg/resvg-wasm": "2.6.2",
+    "@viz-js/viz": "3.31.0",
+    "firecrawl-mcp": "3.33.4",
     "zod": "4.4.3"
   },
   "peerDependencies": {

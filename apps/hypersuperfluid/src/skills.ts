@@ -12,6 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import * as skillFilesystem from '@deepseek-ai/dsh-skill-filesystem'
 import { hsfHome } from './home.ts'
+import { findCareerOps } from './career.ts'
 
 /** Cordis plugin name. */
 export const name = 'hsf-skills'
@@ -24,12 +25,15 @@ export interface Config {
   home?: string
   /** More directories to read skills from. */
   extraDirs?: string[]
+  /** Also read the CareerOps install's own skills (its `career-ops` router), when one is found. */
+  careerOps?: boolean
 }
 
 /** Runtime schema for {@link Config}. */
 export const Config: z<Config> = z.object({
   home: z.string(),
   extraDirs: z.array(z.string()).default([]),
+  careerOps: z.boolean().default(false),
 })
 
 /** `lib/skills.js` sits one level under the package root, as `src/skills.ts` does. */
@@ -42,5 +46,8 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export function apply(ctx: Context, config: Config): void {
   const learned = join(hsfHome(config.home), 'skills')
   mkdirSync(learned, { recursive: true })
-  ctx.plugin(skillFilesystem, { customSkillDirs: [learned, join(packageRoot, 'skills'), ...config.extraDirs ?? []] })
+  const careerOps = config.careerOps === true ? findCareerOps({}) : undefined
+  if (config.careerOps === true && careerOps === undefined) ctx.logger.info('hsf-skills: no CareerOps install found; career_ops_status explains how to add one')
+  const careerSkills = careerOps === undefined ? [] : [join(careerOps, '.agents', 'skills')]
+  ctx.plugin(skillFilesystem, { customSkillDirs: [learned, join(packageRoot, 'skills'), ...careerSkills, ...config.extraDirs ?? []] })
 }
