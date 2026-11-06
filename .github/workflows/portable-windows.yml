@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   portable:
+    name: Windows x64 portable and installer
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
