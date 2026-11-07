@@ -39,7 +39,7 @@ jobs:
         run: |
           pnpm --filter @deepseek-ai/dsh-hypersuperfluid run build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $missing = 'brand.js', 'client.js', 'workers.js', 'handoff.js', 'portal.js' |
+          $missing = 'brand.js', 'client.js', 'workers.js', 'acp-chat.js', 'handoff.js', 'portal.js' |
             Where-Object { -not (Test-Path "apps/hypersuperfluid/lib/$_") }
           if ($missing) { Write-Error "The Hypersuperfluid bundle build is missing lib/$($missing -join ', lib/')"; exit 1 }
       # Local packaging settings. There are no secrets in them: the update origins are placeholders, so update

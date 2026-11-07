@@ -930,6 +930,9 @@ importers:
 
   apps/hypersuperfluid:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.4.0
+        version: 1.4.0(zod@4.4.3)
       '@deepseek-ai/dsh-agent':
         specifier: workspace:*
         version: link:../../packages/core/agent
@@ -975,6 +978,9 @@ importers:
       '@deepseek-ai/dsh-subagent-acp':
         specifier: workspace:*
         version: link:../../packages/subagent/subagent-acp
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:*
+        version: link:../../packages/subprocess/subprocess
       '@deepseek-ai/dsh-token-meter':
         specifier: workspace:*
         version: link:../../packages/llm/token-meter

@@ -223,6 +223,7 @@
       "@deepseek-ai/dsh-tools/presentation": ["./packages/core/tools/src/presentation.ts"],
       "@deepseek-ai/dsh-hypersuperfluid": ["./apps/hypersuperfluid/src/brand.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/client": ["./apps/hypersuperfluid/src/client/index.ts"],
+      "@deepseek-ai/dsh-hypersuperfluid/acp-chat": ["./apps/hypersuperfluid/src/acp-chat.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/allowlist": ["./apps/hypersuperfluid/src/allowlist.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/career": ["./apps/hypersuperfluid/src/career.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/firecrawl": ["./apps/hypersuperfluid/src/firecrawl.ts"],

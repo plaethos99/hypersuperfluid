@@ -17,6 +17,7 @@ const host = {
     office: 'src/office.ts',
     portal: 'src/portal/index.ts',
     allowlist: 'src/allowlist.ts',
+    'acp-chat': 'src/acp-chat.ts',
   },
   outDir: 'lib',
   format: 'esm',

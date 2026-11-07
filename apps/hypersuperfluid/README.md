@@ -90,7 +90,9 @@ A local server with no authentication still needs a placeholder key.
 
 A tool appears only when its CLI is installed, and the agent picks up a newly installed CLI after a restart. `workers_status` shows what answers, and spends nothing.
 
-A worker is not a model in the picker: it runs its own agent loop in the working folder and returns one final answer. With `permission: allow` it can change files under its own permissions, outside DSH's sandbox, so its tool waits for a go in Check with me mode.
+**Chatting with a subscription.** `src/acp-chat.ts` also offers each installed CLI as a chat model, "<tool> · your plan", under the provider "<tool> (subscription)". Picking it makes that vendor's agent the chat's model: each Hypersuperfluid session keeps one CLI session while the app runs and sends it only the new message; a fresh CLI session (first turn, after a restart or a retry) gets the conversation so far as text. Its thinking and tool calls show as reasoning. It works with its own tools in the chat's working folder, cannot call DSH tools, receives text only, and answers its permission requests by the row's `permission` (`allow` by default, `reject` to keep it to chat). Titles and summaries never run on it, so they spend nothing from the plan; its idle CLI stops after `idleMinutes` (30).
+
+As a tool, a worker runs its own agent loop in the working folder and returns one final answer. With `permission: allow` it can change files under its own permissions, outside DSH's sandbox, so its tool waits for a go in Check with me mode.
 
 Google's Gemini CLI terms forbid using its OAuth login through third-party software, and people report suspended accounts. Launching Google's own `agy` or `gemini` program is a different thing, but Google has not said whether scripted use of it is allowed. Use `GEMINI_API_KEY` for anything you cannot risk.
 

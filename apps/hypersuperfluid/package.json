@@ -28,7 +28,8 @@
     "./handoff": "./lib/handoff.js",
     "./office": "./lib/office.js",
     "./portal": "./lib/portal.js",
-    "./allowlist": "./lib/allowlist.js"
+    "./allowlist": "./lib/allowlist.js",
+    "./acp-chat": "./lib/acp-chat.js"
   },
   "files": [
     "lib",
@@ -63,6 +64,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.4.0",
     "@deepseek-ai/dsh-agent": "workspace:*",
     "@deepseek-ai/dsh-agent-preset-registry": "workspace:*",
     "@deepseek-ai/dsh-api-session-controller": "workspace:*",
@@ -78,6 +80,7 @@
     "@deepseek-ai/dsh-skill-filesystem": "workspace:*",
     "@deepseek-ai/dsh-subagent": "workspace:*",
     "@deepseek-ai/dsh-subagent-acp": "workspace:*",
+    "@deepseek-ai/dsh-subprocess": "workspace:*",
     "@deepseek-ai/dsh-token-meter": "workspace:*",
     "@deepseek-ai/dsh-tools": "workspace:*",
     "@deepseek-ai/dsh-working-directory": "workspace:*",

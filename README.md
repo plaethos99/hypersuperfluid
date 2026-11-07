@@ -83,7 +83,10 @@ To use a subscription instead of an API key, open **Settings → Subscriptions**
 
 **API keys:** DeepSeek (`DEEPSEEK_API_KEY`), OpenRouter (`OPENROUTER_API_KEY`), OpenAI (`OPENAI_API_KEY`), Anthropic (`ANTHROPIC_API_KEY`), Google Gemini (`GEMINI_API_KEY`) and xAI Grok (`XAI_API_KEY`). Any OpenAI-compatible endpoint, including a local server, can be added in **Settings → Models → Custom provider**. DeepSeek's models read screenshots.
 
-**Subscriptions:** the agent can hand work to the vendors' own command-line agents on your plans: Grok Build, Google Antigravity, Gemini CLI, OpenCode and Hermes Agent. Install one, restart the app, then sign in from **Settings → Subscriptions**. The login stays inside the vendor's program; Hypersuperfluid never sees it.
+**Subscriptions:** use the vendors' own command-line agents on your plans: Grok Build, Google Antigravity, Gemini CLI, OpenCode and Hermes Agent. Install one, restart the app, and sign in from **Settings → Subscriptions**. The login stays inside the vendor's program; Hypersuperfluid never sees it. Then either:
+
+- **Chat with it:** pick **"Grok Build · your plan"** (or another tool's entry) in the chat's model picker. The vendor's agent answers with its own tools in the chat's working folder and on its own rules: it can't use Hypersuperfluid's tools or modes, it receives text only, and Hypersuperfluid's approval gate does not cover what it does there.
+- **Hand it a task:** in any mode, ask the agent to use `grok`, `agy`, `gemini_cli`, `opencode` or `hermes`; it waits for your go in Check with me mode.
 
 Google's Gemini CLI terms forbid using its sign-in through other software, and people report suspended accounts. Use a Gemini API key for anything you cannot risk.
 

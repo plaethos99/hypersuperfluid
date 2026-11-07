@@ -41,6 +41,17 @@
           - { id: opencode, command: opencode, args: [acp] }
           - { id: gemini-cli, command: gemini, args: [--acp] }
           - { id: hermes, command: hermes, args: [acp] }
+    # The same CLIs as chat models: picking "Grok Build · your plan" in the model picker runs Grok Build on the
+    # person's own plan as the chat's model. Only installed CLIs appear.
+    - id: hsf-acp-chat
+      name: '@deepseek-ai/dsh-hypersuperfluid/acp-chat'
+      config:
+        clis:
+          - { id: grok, label: Grok Build, command: grok, args: [agent, stdio] }
+          - { id: agy, label: Google Antigravity, command: agy, args: [acp] }
+          - { id: gemini-cli, label: Gemini CLI, command: gemini, args: [--acp] }
+          - { id: opencode, label: OpenCode, command: opencode, args: [acp] }
+          - { id: hermes, label: Hermes Agent, command: hermes, args: [acp] }
     - id: hsf-erp
       name: '@deepseek-ai/dsh-hypersuperfluid/erp'
     # Firecrawl web research. The key is a credential reference, resolved at start; without one it runs keyless.
