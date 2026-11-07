@@ -89,7 +89,7 @@
     "@resvg/resvg-wasm": "2.6.2",
     "@viz-js/viz": "3.31.0",
     "firecrawl-mcp": "3.33.4",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"
