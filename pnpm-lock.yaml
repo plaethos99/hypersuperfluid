@@ -945,6 +945,9 @@ importers:
       '@deepseek-ai/dsh-attachment':
         specifier: workspace:*
         version: link:../../packages/attachment/attachment
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../packages/util/brand
       '@deepseek-ai/dsh-compaction':
         specifier: workspace:*
         version: link:../../packages/compaction/compaction

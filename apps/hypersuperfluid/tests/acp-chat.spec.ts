@@ -19,6 +19,30 @@ let sessions = 0
 let turns = 0
 const pending = new Map()
 const send = (message) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\\n')
+let servers = []
+// An MCP client over the stdio server the session was given: list the tools, call the first one, report what it said.
+function useTool(server) {
+  const { spawn } = require('node:child_process')
+  const env = { ...process.env }
+  for (const entry of server.env) env[entry.name] = entry.value
+  const child = spawn(server.command, server.args, { env, stdio: ['pipe', 'pipe', 'inherit'] })
+  let out = ''
+  const waiting = new Map()
+  child.stdout.on('data', (chunk) => {
+    out += chunk
+    const lines = out.split('\\n'); out = lines.pop()
+    for (const line of lines) if (line.trim() !== '') { const reply = JSON.parse(line); waiting.get(reply.id)?.(reply) }
+  })
+  let next = 0
+  const rpc = (method, params) => new Promise((resolve) => {
+    next += 1; waiting.set(next, resolve)
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method, params }) + '\\n')
+  })
+  return rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'fake', version: '1' } })
+    .then(() => { child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\\n'); return rpc('tools/list', {}) })
+    .then((listed) => rpc('tools/call', { name: listed.result.tools[0].name, arguments: { q: 'ping' } })
+      .then((called) => { child.kill(); return 'tools: ' + listed.result.tools.map(tool => tool.name).join(',') + '; tool said: ' + called.result.content[0].text }))
+}
 process.stdin.on('data', (chunk) => {
   buffer += chunk
   const lines = buffer.split('\\n'); buffer = lines.pop()
@@ -29,12 +53,19 @@ process.stdin.on('data', (chunk) => {
     if (message.method === 'initialize') send({ id: message.id, result: { protocolVersion: message.params.protocolVersion, agentCapabilities: {}, authMethods: [] } })
     else if (message.method === 'session/new') {
       if (mode === 'auth') send({ id: message.id, error: { code: -32000, message: 'Authentication required' } })
-      else { sessions += 1; send({ id: message.id, result: { sessionId: 's' + sessions } }) }
+      else { sessions += 1; servers = message.params.mcpServers; send({ id: message.id, result: { sessionId: 's' + sessions } }) }
     } else if (message.method === 'session/prompt') {
       turns += 1
       const sessionId = message.params.sessionId
       const text = message.params.prompt.map(block => block.text).join('')
       const update = (u) => send({ method: 'session/update', params: { sessionId, update: u } })
+      if (text.includes('USE_TOOL')) {
+        useTool(servers[0]).then((said) => {
+          update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: said } })
+          send({ id: message.id, result: { stopReason: 'end_turn' } })
+        })
+        continue
+      }
       update({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking' } })
       update({ sessionUpdate: 'tool_call', toolCallId: 't' + turns, title: 'Read notes.txt', kind: 'read', status: 'pending' })
       pending.set('p' + turns, (result) => {
@@ -215,6 +246,28 @@ describe('AcpChatAdapter', () => {
     } finally {
       await chat.dispose()
       await ctx.fiber.dispose()
+    }
+  })
+
+  it('hands the vendor the chat tools and runs its calls through DSH', async () => {
+    const chat = adapter()
+    const tools = [{ name: 'browser_open', description: 'Open a page in the built-in browser', parameters: { type: 'object', properties: { q: { type: 'string' } } } }]
+    try {
+      const first = await collect(chat.stream(options([user('USE_TOOL please')], { tools })))
+      const call = first.find(chunk => chunk.type === 'block-end' && chunk.block.type === 'tool-call')
+      expect(call).toMatchObject({ block: { type: 'tool-call', name: 'browser_open', arguments: JSON.stringify({ q: 'ping' }) } })
+      expect(first.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+      const id = call !== undefined && call.type === 'block-end' && call.block.type === 'tool-call' ? call.block.id : ''
+      const history: RequestMessage[] = [
+        user('USE_TOOL please'),
+        { role: 'assistant', id: 'a1', content: [call !== undefined && call.type === 'block-end' ? call.block : { type: 'text', text: '' }], source: { kind: 'model' } } as unknown as RequestMessage,
+        { role: 'tool', id: 't1', toolCallId: id, content: [{ type: 'text', text: 'pong' }], source: { kind: 'tool' } } as unknown as RequestMessage,
+      ]
+      const second = await collect(chat.stream(options(history, { tools })))
+      expect(textOf(second)).toBe('tools: browser_open; tool said: pong')
+      expect(second.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+    } finally {
+      await chat.dispose()
     }
   })
 })

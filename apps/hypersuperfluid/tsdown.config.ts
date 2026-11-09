@@ -18,6 +18,7 @@ const host = {
     portal: 'src/portal/index.ts',
     allowlist: 'src/allowlist.ts',
     'acp-chat': 'src/acp-chat.ts',
+    'mcp-bridge': 'src/mcp-bridge.ts',
   },
   outDir: 'lib',
   format: 'esm',

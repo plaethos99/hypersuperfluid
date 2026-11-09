@@ -174,7 +174,7 @@ export function SubscriptionsSection(_props: object): ReactNode {
 
   const intro = bridge === undefined
     ? 'These tools sign in on the computer that runs Hypersuperfluid. Open a terminal there and run each tool\'s sign-in command, then restart the app.'
-    : 'Chat with these vendors\' own agents on your plans: after signing in, pick "<tool> · your plan" in the chat\'s model picker. The agent can also hand them tasks. Sign in opens the vendor\'s login in a terminal window; the login stays in the vendor\'s program, and this app never sees it. Check opens a session without sending a prompt, so it spends nothing.'
+    : 'Chat with these vendors\' own agents on your plans: after signing in, pick "<tool> · your plan" in the chat\'s model picker. They also get this chat\'s Hypersuperfluid tools, such as the built-in browser, and the agent can hand them tasks. Sign in opens the vendor\'s login in a terminal window; the login stays in the vendor\'s program, and this app never sees it. Check opens a session without sending a prompt, so it spends nothing.'
   return h('div', { className: 'hsf-subs' },
     h('div', { className: 'hsf-subs-intro' }, intro),
     error === undefined ? null : h('div', { className: 'hsf-subs-note', role: 'alert' }, `Could not list the tools: ${error}`),
