@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-hypersuperfluid",
-  "version": "0.2.2-rc.1",
+  "version": "0.2.3-alpha.2",
   "description": "A general-purpose agent bundle for DeepSeek Harness: self-improving memory and skills, recursive harness refinement, CLI workers, and ERP, DevOps and embedded expertise.",
   "publishConfig": {
     "access": "public"
