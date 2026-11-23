@@ -1,0 +1,52 @@
+# Builds the Office editors Hypersuperfluid ships: ONLYOFFICE's Word, Excel, PowerPoint and PDF editors as packaged by
+# ranuts/document (AGPL-3.0), pinned to one release. The desktop builds call this workflow and put its output in
+# apps/hypersuperfluid/office-editor; run it alone from the Actions tab to get the editor for local testing.
+name: Office editor
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  EDITOR_REPOSITORY: ranuts/document
+  EDITOR_REF: v0.0.9
+
+jobs:
+  build:
+    name: Build ONLYOFFICE editors (ranuts/document)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ env.EDITOR_REPOSITORY }}
+          ref: ${{ env.EDITOR_REF }}
+          path: document
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: document/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install
+        working-directory: document
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: document
+        run: pnpm run build
+      - name: Record what was built
+        run: |
+          test -f document/dist/editor.html
+          du -sh document/dist
+          printf '%s@%s\n' "$EDITOR_REPOSITORY" "$EDITOR_REF" > document/dist/HSF-SOURCE.txt
+          cp document/LICENSE document/dist/LICENSE-AGPL-3.0.txt
+          cp document/NOTICE document/dist/NOTICE.txt 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: office-editor
+          path: document/dist
+          retention-days: 30
