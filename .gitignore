@@ -55,3 +55,6 @@ native/system/test/bin/
 
 # Portable Windows builds (apps/hypersuperfluid/portable/assemble.mjs)
 dist-portable/
+
+# The built ONLYOFFICE editors: the "Office editor" workflow builds them; CI downloads them here.
+apps/hypersuperfluid/office-editor/

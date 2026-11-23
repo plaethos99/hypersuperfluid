@@ -246,6 +246,8 @@
       "@deepseek-ai/dsh-hypersuperfluid/gate": ["./apps/hypersuperfluid/src/gate.js"],
       "@deepseek-ai/dsh-hypersuperfluid/learning": ["./apps/hypersuperfluid/src/learning/index.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/office": ["./apps/hypersuperfluid/src/office.ts"],
+      "@deepseek-ai/dsh-hypersuperfluid/office-editor": ["./apps/hypersuperfluid/src/office-editor/index.ts"],
+      "@deepseek-ai/dsh-hypersuperfluid/office-editor/tools": ["./apps/hypersuperfluid/src/office-editor/tools.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/pace": ["./apps/hypersuperfluid/src/pace.js"],
       "@deepseek-ai/dsh-hypersuperfluid/portal": ["./apps/hypersuperfluid/src/portal/index.ts"],
       "@deepseek-ai/dsh-hypersuperfluid/recursion": ["./apps/hypersuperfluid/src/recursion/index.ts"],

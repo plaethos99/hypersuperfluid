@@ -38,6 +38,27 @@ jobs:
       - name: Build
         working-directory: document
         run: pnpm run build
+      # Hypersuperfluid frames only editor.html. Left out, about 70 MB: the website's pages and their translations, the
+      # Visio editor (no .vsdx support here), and the on-device models of the editor's own AI assistant, which the
+      # app's chat replaces. Checked by opening .docx, .xlsx, .pptx and .pdf files in a build without them.
+      - name: Leave out what the app does not use
+        working-directory: document/dist
+        run: |
+          du -sh .
+          missing=0
+          for path in about.html ai-document-assistant.html changelog.html contact.html \
+            edit-documents-without-account.html embed-demo.html embed-document-editor.html \
+            no-signup-document-editor.html offline-document-editor.html onlyoffice-online-free.html \
+            private-document-editor.html webmcp-document-editor.html help help.html history.html \
+            sitemap.xml llms.txt llms-full.txt social de es ja ko pt zh-CN \
+            sdkjs/visio web-apps/apps/visioeditor; do
+            if [ -e "$path" ]; then rm -rf "$path"; else echo "::warning::$path is no longer in the build"; missing=1; fi
+          done
+          shopt -s nullglob
+          models=(assets/wllama-*.wasm assets/webllm.worker-*.js)
+          [ ${#models[@]} -gt 0 ] || { echo "::warning::no on-device model files found"; missing=1; }
+          rm -f "${models[@]}"
+          [ "$missing" = 0 ] || echo "::warning::The editor's layout changed; review this list against $EDITOR_REF"
       - name: Record what was built
         run: |
           test -f document/dist/editor.html

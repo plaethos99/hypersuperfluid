@@ -20,6 +20,7 @@ import { createElement as h } from 'react'
 import { BRAND, EMBLEM, SMALL_MARK } from './brand-assets.ts'
 import { MEDIA_PREVIEW_ID, MediaPreviewBody, mediaPreviewDefinition } from './media-preview.ts'
 import { MODEL_PREVIEW_ID, ModelPreviewBody, modelPreviewDefinition } from './model-preview.ts'
+import { OFFICE_EDITOR_ID, OfficeEditorBody, officeEditorDefinition } from './office-editor.ts'
 import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
 import { THEME_SOURCE, THEME_STYLE, TOKENS } from './theme.ts'
 
@@ -131,11 +132,13 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'hsf-subscriptions', order: 15, label: () => 'Subscriptions',
   }, SubscriptionsSection))
-  // Extra file previews: video and audio, and 3D models. They wait for the preview plugin, so the brand never does.
+  // Extra file views: video and audio, 3D models, and the Office editors. They wait for the preview plugin, so the
+  // brand never does.
   ctx.inject(['documentPreviews'], (previews) => {
     for (const [definition, key, body] of [
       [mediaPreviewDefinition, MEDIA_PREVIEW_ID, MediaPreviewBody],
       [modelPreviewDefinition, MODEL_PREVIEW_ID, ModelPreviewBody],
+      [officeEditorDefinition, OFFICE_EDITOR_ID, OfficeEditorBody],
     ] as const) {
       previews.effect(() => previews.documentPreviews.register(definition), `hsf-previews: ${key} metadata`)
       previews.effect(() => previews.slots.inject('sidebar.right.tab.document', () => previews.slots.register({

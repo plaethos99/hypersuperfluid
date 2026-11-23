@@ -80,7 +80,7 @@ const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   // Only `prepack` stages `docs`; every other reader of this directory sees
   // whatever the checkout holds.
   '@deepseek-ai/dsh': ['lib/*.js', 'lib/*.js.map', 'lib/types/*.d.ts', 'lib/types/*.d.ts.map', 'docs', 'src'],
-  '@deepseek-ai/dsh-hypersuperfluid': ['lib', 'cordis.patch.yml', 'optional', 'skills', 'erp', 'office', 'README.md', 'THIRD_PARTY.md', 'licenses'],
+  '@deepseek-ai/dsh-hypersuperfluid': ['lib', 'cordis.patch.yml', 'optional', 'skills', 'erp', 'office', 'office-editor', 'README.md', 'THIRD_PARTY.md', 'licenses'],
   '@deepseek-ai/dsh-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],

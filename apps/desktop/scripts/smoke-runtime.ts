@@ -180,7 +180,12 @@ export function apply(ctx) {
     manifest.dependencies = { ...manifest.dependencies, [pluginName]: `file:${plugin}` }
     manifest.dsh.profile.bundles.push(pluginName)
     writeFileSync(join(profile, 'package.json'), JSON.stringify(manifest))
-    writeFileSync(join(profile, 'cordis.patch.yml'), '- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n')
+    // LibreOffice's first conversions can outlast the engine's 60-second default on slow (Intel macOS) CI runners.
+    // The row's whole config is restated because a patch replaces it.
+    writeFileSync(join(profile, 'cordis.patch.yml'), [
+      '- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n',
+      "- id: office-kit\n  config:\n    outputDirectory: !!js dshHomePath('office-kit', 'outputs')\n    timeoutMs: 300000\n",
+    ].join(''))
     const ready = await Promise.race([host.start(), new Promise<never>((_, reject) => {
       timer = setTimeout(() => { reject(new Error('desktop runtime: Host readiness exceeded 120 seconds')) }, 120_000)
     })])
@@ -207,7 +212,7 @@ export function apply(ctx) {
     console.log('desktop runtime: packaged Office skills listed and loaded')
     for (const { extension } of inputs) {
       const converted = await fetch(new URL(`/desktop-smoke-office/${extension}`, ready.url), {
-        headers: { cookie }, signal: AbortSignal.timeout(120_000),
+        headers: { cookie }, signal: AbortSignal.timeout(360_000),
       })
       if (!converted.ok) throw new Error(`desktop runtime: ${extension} conversion failed: ${await converted.text()}`)
       const pdf = Buffer.from(await converted.arrayBuffer())

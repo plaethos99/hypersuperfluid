@@ -16,8 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ONLYOFFICE's editors (ranuts/document), built once and shipped in the bundle's office-editor/ folder.
+  office-editor:
+    uses: ./.github/workflows/office-editor.yml
+
   portable:
     name: Windows x64 portable and installer
+    needs: office-editor
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
@@ -35,6 +40,10 @@ jobs:
         run: pnpm run build:artifacts
       # The repository build covers packages/*/* and apps/cli only, and lib/ is git-ignored, so without this step the
       # bundle ships without its code and the app starts as plain DeepSeek Harness.
+      - uses: actions/download-artifact@v7
+        with:
+          name: office-editor
+          path: apps/hypersuperfluid/office-editor
       - name: Build the Hypersuperfluid bundle
         shell: pwsh
         run: |
@@ -76,7 +85,7 @@ jobs:
             Select-Object -First 1
           if ($null -eq $tarball) { Write-Error 'No Hypersuperfluid bundle tarball was packed'; exit 1 }
           $files = tar -tzf $tarball.FullName
-          foreach ($file in 'package/lib/brand.js', 'package/lib/client.js', 'package/cordis.patch.yml') {
+          foreach ($file in 'package/lib/brand.js', 'package/lib/client.js', 'package/cordis.patch.yml', 'package/office-editor/editor.html') {
             if ($files -notcontains $file) { Write-Error "$($tarball.Name) lacks $file"; exit 1 }
           }
           "$($tarball.Name): $($files.Count) files, including lib/brand.js and lib/client.js"
@@ -111,6 +120,7 @@ jobs:
 
   macos:
     name: macOS ${{ matrix.arch }} disk image
+    needs: office-editor
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     strategy:
@@ -137,6 +147,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm run build:artifacts
+      - uses: actions/download-artifact@v7
+        with:
+          name: office-editor
+          path: apps/hypersuperfluid/office-editor
       - name: Build the Hypersuperfluid bundle
         run: |
           pnpm --filter @deepseek-ai/dsh-hypersuperfluid run build
@@ -157,7 +171,7 @@ jobs:
           tarball=$(find apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/packed -name 'deepseek-ai-dsh-hypersuperfluid-*.tgz' | head -1)
           test -n "$tarball" || { echo '::error::No Hypersuperfluid bundle tarball was packed'; exit 1; }
           files=$(tar -tzf "$tarball")
-          for file in package/lib/brand.js package/lib/client.js package/cordis.patch.yml; do
+          for file in package/lib/brand.js package/lib/client.js package/cordis.patch.yml package/office-editor/editor.html; do
             grep -qx "$file" <<<"$files" || { echo "::error::$(basename "$tarball") lacks $file"; exit 1; }
           done
           echo "$(basename "$tarball"): $(wc -l <<<"$files") files, including lib/brand.js and lib/client.js"

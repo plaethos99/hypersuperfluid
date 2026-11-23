@@ -29,7 +29,9 @@
     "./office": "./lib/office.js",
     "./portal": "./lib/portal.js",
     "./allowlist": "./lib/allowlist.js",
-    "./acp-chat": "./lib/acp-chat.js"
+    "./acp-chat": "./lib/acp-chat.js",
+    "./office-editor": "./lib/office-editor.js",
+    "./office-editor/tools": "./lib/office-editor-tools.js"
   },
   "files": [
     "lib",
@@ -38,6 +40,7 @@
     "skills",
     "erp",
     "office",
+    "office-editor",
     "README.md",
     "THIRD_PARTY.md",
     "licenses"
@@ -99,6 +102,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-client-connection": "workspace:*",
     "@deepseek-ai/dsh-client-locale": "workspace:*",
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:*",
     "@deepseek-ai/dsh-client-ui-renderer": "workspace:*",

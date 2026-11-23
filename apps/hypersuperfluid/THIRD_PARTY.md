@@ -37,6 +37,12 @@ The bundled ERP knowledge skills name vendors' products for identification only.
 - **License:** MIT, [licenses/career-ops-LICENSE.txt](licenses/career-ops-LICENSE.txt).
 - **Used in:** the career mode runs it unchanged from its own folder through its `career-ops` skill; `src/career.ts` only finds the install and reports its state. The portable build copies its tracked system files, never a person's data.
 
+## ONLYOFFICE editors (ranuts/document)
+
+- **Source:** [ranuts/document](https://github.com/ranuts/document) at tag `v0.0.9`, which packages ONLYOFFICE's web editors ([web-apps](https://github.com/ONLYOFFICE/web-apps), [sdkjs](https://github.com/ONLYOFFICE/sdkjs)) and a WebAssembly build of its x2t converter.
+- **License:** AGPL-3.0. The build copies its `LICENSE` and `NOTICE` into `office-editor/` as `LICENSE-AGPL-3.0.txt` and `NOTICE.txt`.
+- **Used in:** `office-editor/`, built unmodified by `.github/workflows/office-editor.yml` and served by `src/office-editor/server.ts`. Hypersuperfluid's own code talks to it only through its iframe embed API and ONLYOFFICE's document API from a host page on the same origin.
+
 ## Bundled dependencies
 
 | Package | License | Used for |

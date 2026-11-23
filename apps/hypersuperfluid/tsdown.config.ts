@@ -19,6 +19,8 @@ const host = {
     allowlist: 'src/allowlist.ts',
     'acp-chat': 'src/acp-chat.ts',
     'mcp-bridge': 'src/mcp-bridge.ts',
+    'office-editor': 'src/office-editor/index.ts',
+    'office-editor-tools': 'src/office-editor/tools.ts',
   },
   outDir: 'lib',
   format: 'esm',

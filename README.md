@@ -77,6 +77,7 @@ To use a subscription instead of an API key, open **Settings → Subscriptions**
 - **Shares links.** An *ask link* lets anyone send screenshots and questions and get plain-language guidance. An *agent link* lets someone upload a folder and a task; each task waits for your approval, then runs on its own, and they download the result as a ZIP. Links are published through a free Cloudflare quick tunnel (`winget install --id Cloudflare.cloudflared`).
 - **Researches deeply.** The Firecrawl MCP server is built in and works without a key; set `FIRECRAWL_API_KEY` for your own plan.
 - **Makes office files.** Word, Excel and PowerPoint; PDF merge, split, watermark, forms, encryption, text and tables; Graphviz and PlantUML diagrams as SVG or PNG.
+- **Edits Office files like Office.** Word, Excel, PowerPoint and PDF files open in ONLYOFFICE's editors, with the familiar ribbon, inside the app. Type a change in chat ("add a summary table after the intro", "total column D", "add a closing slide") and the agent makes it in the open document while you watch; everything saves to the file.
 - **Previews almost any file.** Click a file in the files pane or a file card: Word, Excel, PowerPoint, PDF, images, Markdown, code, HTML and CSV, plus 3D models (glTF/GLB, OBJ, STL, PLY, FBX) you can orbit and zoom, and video and audio.
 - **Connects to ERP.** A live Odoo connection, and expert knowledge of SAP, Oracle, Dynamics, ERPNext, NetSuite and Tally.
 
