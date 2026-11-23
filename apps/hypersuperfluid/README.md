@@ -144,6 +144,8 @@ When a request uses 70% of the model's context window, below compaction's 80%, t
 
 **Makes office files.** The office mode uses DSH's Word, Excel and PowerPoint skills (bundled in the desktop app) and `office_tools`: `setup` builds a small Python environment once (pypdf, pdfplumber, reportlab, matplotlib; needs `uv` or Python 3.10+) with `pdf_tool.py` for merging, splitting, rotating, watermarking, encrypting, filling forms and extracting text and tables; `render` turns Graphviz DOT into SVG or PNG with bundled WebAssembly builds of Graphviz and resvg, and PlantUML into SVG when Java and a PlantUML jar are present.
 
+**Previews more files.** The browser plugin adds two right-sidebar renderers to DSH's document preview: `src/client/model-preview.ts` draws glTF/GLB (with external buffers and textures, first animation playing), OBJ, STL, PLY and FBX with three.js (bundled into `lib/client.js`, which ships minified), and `src/client/media-preview.ts` plays video and audio. Both stream the file from the authenticated `/api/file` route, which serves files up to the app's media size limit.
+
 **Optional.**
 - **Browser:** off by default because it opens a connection per session. `HSF_BROWSER_PATH` selects a specific Chromium.
 

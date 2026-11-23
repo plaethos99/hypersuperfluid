@@ -14,8 +14,12 @@ import type { LanguageRegistration, LocaleDict } from '@deepseek-ai/dsh-client-l
 // Type-only: the settings shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
+// Type-only: the ctx.documentPreviews service and the 'sidebar.right.tab.document' slot.
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
 import { createElement as h } from 'react'
 import { BRAND, EMBLEM, SMALL_MARK } from './brand-assets.ts'
+import { MEDIA_PREVIEW_ID, MediaPreviewBody, mediaPreviewDefinition } from './media-preview.ts'
+import { MODEL_PREVIEW_ID, ModelPreviewBody, modelPreviewDefinition } from './model-preview.ts'
 import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
 import { THEME_SOURCE, THEME_STYLE, TOKENS } from './theme.ts'
 
@@ -127,4 +131,16 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'hsf-subscriptions', order: 15, label: () => 'Subscriptions',
   }, SubscriptionsSection))
+  // Extra file previews: video and audio, and 3D models. They wait for the preview plugin, so the brand never does.
+  ctx.inject(['documentPreviews'], (previews) => {
+    for (const [definition, key, body] of [
+      [mediaPreviewDefinition, MEDIA_PREVIEW_ID, MediaPreviewBody],
+      [modelPreviewDefinition, MODEL_PREVIEW_ID, ModelPreviewBody],
+    ] as const) {
+      previews.effect(() => previews.documentPreviews.register(definition), `hsf-previews: ${key} metadata`)
+      previews.effect(() => previews.slots.inject('sidebar.right.tab.document', () => previews.slots.register({
+        name: 'sidebar.right.tab.document', key,
+      }, body)), `hsf-previews: ${key} body`)
+    }
+  })
 }

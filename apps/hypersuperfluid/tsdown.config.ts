@@ -43,10 +43,14 @@ const client = {
   format: 'cjs',
   platform: 'browser',
   target: 'es2022',
+  // three.js makes up most of this file, so it ships minified.
+  minify: true,
   dts: false,
   // The host build above already cleaned lib/; cleaning here would remove its output.
   clean: false,
-  deps: { neverBundle: ['react', 'react/jsx-runtime', 'react-dom', /^@deepseek-ai\//] },
+  // Plugins come from the loader; the few libraries DSH's own client builds inline (INLINE_SAFE in
+  // packages/client/tsdown.client.ts) are inlined here too, since the loader does not provide them.
+  deps: { neverBundle: ['react', 'react/jsx-runtime', 'react-dom', /^@deepseek-ai\/(?!dsh-util-workspace-path(?:\/|$))/] },
   outputOptions: {
     entryFileNames: 'client.js',
     banner: 'window.__ModuleLoader__.load({ id: "@deepseek-ai/dsh-hypersuperfluid", factory: (require) => {',
