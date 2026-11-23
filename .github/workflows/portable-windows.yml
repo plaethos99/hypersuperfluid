@@ -27,7 +27,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: '^24.22.3'
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -128,7 +128,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: '^24.22.3'
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -141,8 +141,14 @@ jobs:
             test -f "apps/hypersuperfluid/lib/$file" || { echo "::error::The Hypersuperfluid bundle build is missing lib/$file"; exit 1; }
           done
       # Unsigned Mac packaging reads no settings file: it uses the app id com.hypersuperfluid.desktop and ad-hoc signs.
+      # The packager's self-test converts Office files with LibreOffice, whose first start can outlast its timeout on
+      # the slower Intel runners, so a failed attempt is tried once more from a clean build folder.
       - name: Package
-        run: pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned
+        run: |
+          if pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned; then exit 0; fi
+          echo '::warning::Packaging failed once; trying again'
+          rm -rf apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}
+          pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned
       - name: Check the app carries the Hypersuperfluid bundle
         run: |
           tarball=$(find apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/packed -name 'deepseek-ai-dsh-hypersuperfluid-*.tgz' | head -1)
