@@ -26,7 +26,7 @@ jobs:
           ref: ${{ env.EDITOR_REF }}
           path: document
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           package_json_file: document/package.json
       - uses: actions/setup-node@v6
