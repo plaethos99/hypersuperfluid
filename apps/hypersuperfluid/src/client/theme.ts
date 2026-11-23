@@ -45,6 +45,14 @@ export const TOKENS: ThemeTokenOverrides = {
   '--dsw-alias-trajectory-accent': pair('#8f620a', '#e5b54a'),
   // DSH's general accent (carets, rails, badges, icons) follows the gold.
   '--dsw-alias-brand-primary-new-colorprimary-new-color': pair('#8f620a', '#e5b54a'),
+  // The last DeepSeek-blue spots: badge fills such as "Preview" (gold text on a gold tint, 4.7:1 light and 7:1 dark),
+  // the action in toasts (which sit on a dark fill in both modes), a highlighted bubble, and the shimmering
+  // "working" label.
+  '--dsw-alias-state-business-tertiary': pair('#fbf3df', '#33290f'),
+  '--dsw-alias-toast-action': pair('#e5b54a', '#e5b54a'),
+  '--dsw-specific-bubble-highlight': pair('#f6e7c1', '#2a354b'),
+  '--dsw-alias-label-deep-diving': pair('#7a5410', '#d8ae52'),
+  '--dsw-alias-label-deep-diving-shimmer': pair('#d9b45e', '#f3d58e'),
   // The send button carries a white arrow, so it takes a sapphire deep enough for it rather than the gold.
   '--dsw-alias-button-info-fill': pair('#2c5bcc', '#3a6ad8'),
   '--dsw-alias-button-info-hover': pair('#234aa8', '#4a78e4'),

@@ -1177,7 +1177,7 @@ describe('desktop main startup', () => {
     expect(harness.hosts).toHaveLength(0)
   })
 
-  it.each([[false, '#f9fafb'], [true, '#1b1b1c']] as const)('paints the Windows workspace in its startup palette (dark=%s)', async (dark, color) => {
+  it.each([[false, '#fcfcfd'], [true, '#0d121b']] as const)('paints the Windows workspace in its startup palette (dark=%s)', async (dark, color) => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
     harness.nativeTheme.shouldUseDarkColors = dark
     await import('../src/main.ts')
@@ -1187,8 +1187,8 @@ describe('desktop main startup', () => {
 
   describe.each(['win32', 'darwin'] as const)('Host theme on %s', (platform) => {
     it.each([
-      ['light', true, '#f9fafb'], ['dark', false, '#1b1b1c'],
-      ['system', true, '#1b1b1c'], ['system', false, '#f9fafb'],
+      ['light', true, '#fcfcfd'], ['dark', false, '#0d121b'],
+      ['system', true, '#0d121b'], ['system', false, '#fcfcfd'],
     ] as const)('applies %s with system dark=%s before revealing the workspace', async (source, systemDark, color) => {
       vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
       harness.nativeTheme.systemDark = systemDark
@@ -1219,7 +1219,7 @@ describe('desktop main startup', () => {
     for (const dark of [true, false]) {
       harness.nativeTheme.systemDark = dark
       harness.nativeTheme.emit('updated')
-      expect(window.setBackgroundColor).toHaveBeenLastCalledWith(dark ? '#1b1b1c' : '#f9fafb')
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith(dark ? '#0d121b' : '#fcfcfd')
     }
     window.emit('closed')
     expect(harness.nativeTheme.listenerCount('updated')).toBe(0)
@@ -1295,7 +1295,7 @@ describe('desktop main startup', () => {
     window.minimized = true
     window.emit('minimize')
     expect(window.setVibrancy).toHaveBeenLastCalledWith(null)
-    expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#f9fafb')
+    expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#fcfcfd')
     // Restoring re-requests the material and returns to the transparent base.
     window.minimized = false
     window.emit('restore')
@@ -1306,7 +1306,7 @@ describe('desktop main startup', () => {
     window.visible = false
     window.emit('hide')
     expect(window.setVibrancy).toHaveBeenLastCalledWith(null)
-    expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#1b1b1c')
+    expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#0d121b')
     window.visible = true
     window.emit('show')
     expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#00000000')

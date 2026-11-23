@@ -333,8 +333,22 @@ export class BlockWriter {
     this.emit(kind === 'text' ? { type: 'text-delta', index: this.index, text } : { type: 'reasoning-delta', index: this.index, text })
   }
 
+  /** The current run of the vendor's own actions, with nothing else between them. */
+  private run = { shown: 0, hidden: 0, kinds: new Map<string, number>() }
+
+  /** Ends the current run of actions, naming the ones that were not listed one by one. */
+  private flushRun(): void {
+    const { hidden, kinds } = this.run
+    this.run = { shown: 0, hidden: 0, kinds: new Map() }
+    if (hidden === 0 || this.kind !== 'reasoning') return
+    const text = `▸ … ${String(hidden)} more: ${actionSummary(kinds)}\n`
+    this.buffer += text
+    this.emit({ type: 'reasoning-delta', index: this.index, text })
+  }
+
   /** Closes the open block. */
   end(): void {
+    this.flushRun()
     if (this.kind === undefined) return
     this.emit({ type: 'block-end', index: this.index, block: { type: this.kind, text: this.buffer } })
     this.kind = undefined
@@ -376,15 +390,26 @@ export class BlockWriter {
         }
         break
       case 'agent_thought_chunk':
-        if (update.content.type === 'text') this.write('reasoning', update.content.text)
+        if (update.content.type === 'text' && update.content.text !== '') {
+          this.flushRun()
+          this.write('reasoning', update.content.text)
+        }
         break
       case 'tool_call':
         this.tools.set(update.toolCallId, update.title)
         // Calls to the shared tools show as DSH tool calls; repeating them here would show them twice.
         if (!isSharedToolTitle(update.title)) {
+          // A long run of actions shows its first few, then one line counting the rest by kind.
+          if (this.run.shown >= TOOL_LINES_PER_RUN && this.kind === 'reasoning') {
+            this.run.hidden += 1
+            const kind = update.kind ?? 'other'
+            this.run.kinds.set(kind, (this.run.kinds.get(kind) ?? 0) + 1)
+            break
+          }
           const file = update.locations?.[0]?.path
           const named = file === undefined || update.title.includes(basename(file)) ? update.title : `${update.title} ${basename(file)}`
-          this.write('reasoning', `\n▸ ${named}\n`)
+          this.write('reasoning', `${this.run.shown === 0 ? '\n' : ''}▸ ${named}\n`)
+          this.run.shown += 1
         }
         break
       case 'tool_call_update': {
@@ -393,12 +418,34 @@ export class BlockWriter {
         break
       }
       case 'plan':
+        this.flushRun()
         this.write('reasoning', `\nPlan:\n${update.entries.map(entry => `${entry.status === 'completed' ? '✓' : '·'} ${entry.content}`).join('\n')}\n`)
         break
       default:
         break
     }
   }
+}
+
+/** How many of the vendor's own actions in a row are listed one by one before the rest are counted. */
+export const TOOL_LINES_PER_RUN = 5
+
+const ACTION_NOUNS: Readonly<Record<string, readonly [string, string]>> = {
+  read: ['read', 'reads'], edit: ['edit', 'edits'], delete: ['deletion', 'deletions'], move: ['move', 'moves'],
+  search: ['search', 'searches'], execute: ['command', 'commands'], fetch: ['fetch', 'fetches'], think: ['thought', 'thoughts'],
+  switch_mode: ['mode switch', 'mode switches'],
+}
+
+/**
+ * Counts actions by kind, most frequent first: "20 edits, 12 reads, 5 commands".
+ * @param kinds - ACP tool kinds and their counts.
+ * @returns the summary.
+ */
+export function actionSummary(kinds: ReadonlyMap<string, number>): string {
+  return [...kinds].sort((left, right) => right[1] - left[1]).map(([kind, count]) => {
+    const [one, many] = ACTION_NOUNS[kind] ?? ['other action', 'other actions']
+    return `${String(count)} ${count === 1 ? one : many}`
+  }).join(', ')
 }
 
 function isSharedToolTitle(title: string): boolean {

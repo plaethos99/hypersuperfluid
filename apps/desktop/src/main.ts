@@ -248,7 +248,7 @@ function developmentHostInspectPort(enabled: boolean): number | undefined {
  * @returns the sidebar fill hex for the effective application color scheme.
  */
 function chromeFallbackFill(): string {
-  return nativeTheme.shouldUseDarkColors ? '#1b1b1c' : '#f9fafb'
+  return nativeTheme.shouldUseDarkColors ? '#0d121b' : '#fcfcfd'
 }
 
 /**

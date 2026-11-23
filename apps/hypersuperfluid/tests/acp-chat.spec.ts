@@ -9,7 +9,7 @@ import LlmRuntime from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, RequestMessage, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import { AcpChatAdapter, BlockWriter, ChunkQueue, MODEL_ID, routeOf, turnInput } from '../src/acp-chat.ts'
+import { AcpChatAdapter, actionSummary, BlockWriter, ChunkQueue, MODEL_ID, routeOf, TOOL_LINES_PER_RUN, turnInput } from '../src/acp-chat.ts'
 
 /** A stand-in ACP agent: it echoes each prompt, reports a tool call, asks for one permission, and counts sessions. */
 const FAKE_AGENT = `
@@ -174,6 +174,26 @@ describe('turnInput', () => {
 })
 
 describe('BlockWriter', () => {
+  it('lists the first actions of a long run and counts the rest by kind', () => {
+    const chunks: StreamChunk[] = []
+    const writer = new BlockWriter((chunk) => { chunks.push(chunk) })
+    writer.apply({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'Working.' } })
+    for (let call = 0; call < 12; call += 1) {
+      writer.apply({ sessionUpdate: 'tool_call', toolCallId: `c${String(call)}`, title: `Edit file${String(call)}.py`, kind: call < 9 ? 'edit' : 'read' })
+    }
+    writer.apply({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'Next step.' } })
+    writer.apply({ sessionUpdate: 'tool_call', toolCallId: 'after', title: 'Run tests', kind: 'execute' })
+    writer.end()
+    const reasoning = chunks.flatMap(chunk => chunk.type === 'block-end' && chunk.block.type === 'reasoning' ? [chunk.block.text] : []).join('')
+    expect(reasoning.match(/▸ Edit/gu)).toHaveLength(TOOL_LINES_PER_RUN)
+    expect(reasoning).toContain('▸ … 7 more: 4 edits, 3 reads\nNext step.')
+    expect(reasoning).toContain('▸ Run tests')
+  })
+
+  it('names action kinds in plain words', () => {
+    expect(actionSummary(new Map([['execute', 1], ['search', 2], ['unknown', 1]]))).toBe('2 searches, 1 command, 1 other action')
+  })
+
   it('opens and closes blocks as the kind changes', () => {
     const chunks: StreamChunk[] = []
     const writer = new BlockWriter((chunk) => { chunks.push(chunk) })

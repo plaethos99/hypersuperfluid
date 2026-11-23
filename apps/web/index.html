@@ -10,6 +10,24 @@
     <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
     <title>Hypersuperfluid</title>
+    <!-- Hypersuperfluid's surfaces from the first paint, before its palette layer loads, so DSH's colours never
+         flash. The values match apps/hypersuperfluid/src/client/theme.ts (a test keeps them equal). -->
+    <style>
+      html body {
+        --dsw-alias-bg-base: #fcfcfd;
+        --dsw-specific-sidebar-fill: #f4f5f8;
+        --dsw-alias-bg-layer-1: #ffffff;
+        --dsw-alias-label-primary: #0f1623;
+        --dsw-alias-label-secondary: #475164;
+      }
+      html body[data-ds-dark-theme] {
+        --dsw-alias-bg-base: #0d121b;
+        --dsw-specific-sidebar-fill: #0a0e15;
+        --dsw-alias-bg-layer-1: #131a26;
+        --dsw-alias-label-primary: #e9edf4;
+        --dsw-alias-label-secondary: #aab4c5;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
