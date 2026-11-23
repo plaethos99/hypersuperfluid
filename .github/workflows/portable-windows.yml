@@ -1,6 +1,7 @@
-# Builds Hypersuperfluid for Windows x64: a portable zip that keeps all state in its own folder, and an installer.
-# Both are unsigned. Run it from the Actions tab; pushing a tag such as v0.2.2 also publishes both to a release.
-name: Portable Windows build
+# Builds Hypersuperfluid's desktop app: for Windows x64 a portable zip that keeps all state in its own folder and an
+# installer, and for macOS a disk image each for Apple Silicon and Intel. All are unsigned (the Mac apps are ad-hoc
+# signed). Run it from the Actions tab; pushing a tag such as v0.2.2 also publishes them all to one release.
+name: Desktop builds (Windows and macOS)
 
 on:
   workflow_dispatch:
@@ -76,17 +77,22 @@ jobs:
             if ($files -notcontains $file) { Write-Error "$($tarball.Name) lacks $file"; exit 1 }
           }
           "$($tarball.Name): $($files.Count) files, including lib/brand.js and lib/client.js"
+      # The files are named after the tag, which can move ahead of the package version for a rebuilt release.
       - name: Assemble the portable folder and zip it
         id: portable
         shell: pwsh
         run: |
           $folder = node apps/hypersuperfluid/portable/assemble.mjs
-          $name = Split-Path $folder -Leaf
-          7z a -tzip -mx=7 "dist-portable/$name.zip" "$folder" | Out-Null
-          $installer = Get-ChildItem apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts -Filter 'hypersuperfluid-*-unsigned.exe' | Select-Object -First 1
-          "zip=dist-portable/$name.zip" >> $env:GITHUB_OUTPUT
-          "installer=$($installer.FullName)" >> $env:GITHUB_OUTPUT
-          Get-Item "dist-portable/$name.zip", $installer.FullName | ForEach-Object { '{0} {1:N0} MB' -f $_.Name, ($_.Length / 1MB) }
+          $version = if ('${{ github.ref }}'.StartsWith('refs/tags/v')) { '${{ github.ref_name }}'.TrimStart('v') } else { "dev.${{ github.run_number }}" }
+          $zip = "dist-portable/Hypersuperfluid-$version-win-x64-portable.zip"
+          $setup = "dist-portable/Hypersuperfluid-$version-win-x64-setup-unsigned.exe"
+          7z a -tzip -mx=7 $zip "$folder" | Out-Null
+          $installer = Get-ChildItem apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts -Filter 'hypersuperfluid-*-unsigned.exe' |
+            Select-Object -First 1
+          Copy-Item $installer.FullName $setup
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+          "installer=$setup" >> $env:GITHUB_OUTPUT
+          Get-Item $zip, $setup | ForEach-Object { '{0} {1:N0} MB' -f $_.Name, ($_.Length / 1MB) }
       - uses: actions/upload-artifact@v7
         with:
           name: hypersuperfluid-win-x64-portable
@@ -99,18 +105,93 @@ jobs:
           path: ${{ steps.portable.outputs.installer }}
           compression-level: 0
           retention-days: 30
-      - name: Publish to a release
-        if: startsWith(github.ref, 'refs/tags/v')
+
+  macos:
+    name: macOS ${{ matrix.arch }} disk image
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-latest }
+          - { arch: x64, runner: macos-15-intel }
+    defaults:
+      run:
+        shell: bash
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build:artifacts
+      - name: Build the Hypersuperfluid bundle
+        run: |
+          pnpm --filter @deepseek-ai/dsh-hypersuperfluid run build
+          for file in brand.js client.js workers.js acp-chat.js mcp-bridge.js handoff.js portal.js; do
+            test -f "apps/hypersuperfluid/lib/$file" || { echo "::error::The Hypersuperfluid bundle build is missing lib/$file"; exit 1; }
+          done
+      # Unsigned Mac packaging reads no settings file: it uses the app id com.hypersuperfluid.desktop and ad-hoc signs.
+      - name: Package
+        run: pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned
+      - name: Check the app carries the Hypersuperfluid bundle
+        run: |
+          tarball=$(find apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/packed -name 'deepseek-ai-dsh-hypersuperfluid-*.tgz' | head -1)
+          test -n "$tarball" || { echo '::error::No Hypersuperfluid bundle tarball was packed'; exit 1; }
+          files=$(tar -tzf "$tarball")
+          for file in package/lib/brand.js package/lib/client.js package/cordis.patch.yml; do
+            grep -qx "$file" <<<"$files" || { echo "::error::$(basename "$tarball") lacks $file"; exit 1; }
+          done
+          echo "$(basename "$tarball"): $(wc -l <<<"$files") files, including lib/brand.js and lib/client.js"
+      - name: Name the disk image
+        id: dmg
+        run: |
+          if [[ '${{ github.ref }}' == refs/tags/v* ]]; then version='${{ github.ref_name }}'; version=${version#v}; else version="dev.${{ github.run_number }}"; fi
+          built=$(find apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/unsigned-artifacts -name 'hypersuperfluid-*.dmg' | head -1)
+          test -n "$built" || { echo '::error::No disk image was built'; exit 1; }
+          mkdir -p dist-mac
+          dmg="dist-mac/Hypersuperfluid-$version-mac-${{ matrix.arch }}-unsigned.dmg"
+          cp "$built" "$dmg"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+          ls -lh "$dmg"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hypersuperfluid-mac-${{ matrix.arch }}
+          path: ${{ steps.dmg.outputs.dmg }}
+          compression-level: 0
+          retention-days: 30
+
+  release:
+    name: Publish to a release
+    needs: [portable, macos]
+    # Windows must build; a Mac image that failed is left out rather than holding back the release.
+    if: startsWith(github.ref, 'refs/tags/v') && !cancelled() && needs.portable.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: hypersuperfluid-*
+          path: dist
+          merge-multiple: true
+      - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        # The files are named after the tag, which can move ahead of the package version for a rebuilt release.
+          NOTES: |
+            Unsigned builds.
+
+            **Windows x64.** Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start; choose More info, then Run anyway.
+
+            **macOS.** Take `mac-arm64` for Apple Silicon (M1 and later) or `mac-x64` for Intel. Open the disk image and drag Hypersuperfluid to Applications. The app is not notarized, so before the first start run `xattr -dr com.apple.quarantine /Applications/Hypersuperfluid.app` in Terminal, or open it once and then choose Open Anyway in System Settings → Privacy & Security.
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
-          $zip = "dist-portable/Hypersuperfluid-$version-win-x64-portable.zip"
-          $setup = "dist-portable/Hypersuperfluid-$version-win-x64-setup-unsigned.exe"
-          if ((Split-Path '${{ steps.portable.outputs.zip }}' -Leaf) -ne (Split-Path $zip -Leaf)) { Copy-Item '${{ steps.portable.outputs.zip }}' $zip }
-          Copy-Item '${{ steps.portable.outputs.installer }}' $setup
-          gh release create "${{ github.ref_name }}" $zip $setup `
-            --title "Hypersuperfluid ${{ github.ref_name }}" --prerelease `
-            --notes "Unsigned Windows x64 builds. Portable: extract the zip and run Hypersuperfluid.cmd. Installer: run the .exe. SmartScreen may warn on first start; choose More info, then Run anyway."
+          ls -lh dist
+          gh release create '${{ github.ref_name }}' dist/* -R '${{ github.repository }}' \
+            --title 'Hypersuperfluid ${{ github.ref_name }}' --prerelease --notes "$NOTES"
