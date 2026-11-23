@@ -15,11 +15,12 @@
 
 - 重新设计控件样式之前先复用控件：[ui-primitives 组件目录](../packages/client/ui-primitives/README.zh.md#component-catalog)是唯一跨功能包的通道，有意的视觉差异应作为那里的一个 prop，而不是另起一份拷贝（[参考](../packages/client/ui-primitives/README.zh.md)）。
 - 使用 CSS Modules 和 `clsx`；不得添加组件库或 Tailwind。
-- 功能组件使用 `--dsw-alias-*` 语义 token。不得复制静态色板值或在其中写入颜色字面量。
+- 功能组件使用 `--dsw-alias-*` 语义 token。不得复制静态色板值或在其中写入颜色字面量。ui-theme 的 color-token spec 拒绝功能样式表中的静态色板引用与十六进制、颜色函数、`white` 和 `black` 字面量，以及功能脚本中的静态色板引用；`box-shadow` 值、遮罩属性、alpha 为 0 的字面量，以及其列出的插图和主题加载前文件不受此限制。
 - 功能组件 CSS 不得包含主题选择器。明暗主题覆盖属于主题所有方。
 - 字体大小必须与行高配对；已有角色匹配时使用主题排版变量。
 - 当组件约定要求保留列结构时，源码文本、终端输出和 diff 行不得换行；使用共享滚动条样式，不得定义组件专用滚动条选择器。
 - 呈现规则写在 CSS 中。React 内联样式可以传递组件局部自定义属性值，但不得编码主题分支。
+- 选择器最右侧的复合选择器用 class、id、属性或标签名作键，不靠 `:not()`、`:empty` 或 `:has()` 匹配；`:has()` 只写在被设置样式的元素上。[`verify-css-selectors`](../scripts/verify-css-selectors.ts) 执行这条[带键选择器规则](defensive-patterns/client-components.zh.md#keyed-selectors)。
 - 插件样式表中的相对 `url()` 指向本包 `src/client/assets/` 中的文件，构建会将其改写为[包资源](../packages/client/AGENTS.md#dependency-declaration) URL。`data:`、`#fragment`、以 `/` 开头、带 scheme 的引用以及空 `url('')` 引用保持不变，带片段或查询串的相对文件引用会让构建失败，依赖包中的样式表不会被改写。
 - 将 `:hover` 选择器放在 `@media (hover: hover)` 内，不依赖视口宽度。选中、展开、按下和键盘焦点样式保留在该条件之外。无 hover 时，操作保持可见或通过明确控件访问；打开纯悬停预览的指针事件处理忽略触摸。保留清晰可见的键盘焦点和减少动态效果行为。
 - 支持的引擎上，圆角继承 ui-theme `corner-shape.css` 的全局超级椭圆平滑。每个正圆 `border-radius`（`50%`、`100%` 或胶囊半径）必须配对 `corner-shape: round`，使圆形与胶囊保持圆弧；ui-theme 的 corner-shape spec 强制这一配对。

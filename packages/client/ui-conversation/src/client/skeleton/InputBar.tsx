@@ -28,7 +28,7 @@ import type {} from '@deepseek-ai/dsh-goal/client'
 // wire types: apiproxy's sessions contract declares it, and client-runtime's
 // api-remotes import already places it in every client program.
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ComposerBarProps } from '../contract/slots.ts'
+import type { ComposerBarProps, inputBarChildren } from '../contract/slots.ts'
 import { DraftEditor } from '../input/editor/DraftEditor.tsx'
 import {
   focusDraftEditor, installDraftFilePicker, installDraftKeyboardDismissal, installDraftKeymap, installDraftWheel,
@@ -41,15 +41,15 @@ import { ContextMeter } from './ContextMeter.tsx'
 import { observeControlRow } from './control-row-layout.ts'
 import css from './InputBar.module.css'
 
-export type InputBarProps = ComposerBarProps
+export type InputBarProps = ComposerBarProps<keyof typeof inputBarChildren>
 
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
-  retryFileUpload,
+  retryFileUpload, registerFileIntake,
   toggleCommandMenu, stop, retry, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
+  renderSlot, renderSlotChain, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
   useAccess,
-  useProjection, sessionId, variant, disabled: inert = false, blocked,
+  useProjection, sessionId, variant, occurrence, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory,
 }: InputBarProps) {
@@ -310,6 +310,17 @@ export const InputBar = memo(function InputBar({
     return installDraftKeyboardDismissal(editor, cardRef)
   }, [editor])
 
+  // A document paste outside an editable control addresses at most one
+  // mounted composer; the shared route elects it from focus and the main
+  // occurrence.
+  useEffect(() => registerFileIntake({
+    // The card is an unconditional descendant attached before this effect.
+    card: cardRef.current as HTMLDivElement,
+    occurrence,
+    accepts: () => gate.current.canAcceptDrop,
+    add: (files, directories) => { gate.current.intakeFiles(files, directories) },
+  }), [registerFileIntake, occurrence])
+
   // Button presses steal focus from the editor; suppress at mousedown so
   // typing continues seamlessly. Lexical's focus() carries preventScroll and
   // restores the previous selection, so no reveal is needed: the caret has
@@ -483,6 +494,8 @@ export const InputBar = memo(function InputBar({
           editorDisabled={editorDisabled}
           phase={input?.phase ?? 'inert'}
           placeholderText={placeholderText}
+          placeholderSessionId={editable && !canSteerQueue ? sessionId : undefined}
+          renderSlotChain={renderSlotChain}
           ariaLabel={workspaceTrigger ? t('hero.chooseWorkspace') : placeholderText}
           workspaceTrigger={workspaceTrigger}
           workspacePickerOpen={workspacePickerOpen}
