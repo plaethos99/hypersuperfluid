@@ -8,6 +8,7 @@
 
 import { createElement as h, useEffect, useState, type ReactNode } from 'react'
 import type { DocumentPreviewDefinition, DocumentPreviewProps } from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import { UNREADABLE_STYLE, unreadableMessage } from './unreadable.ts'
 
 /** Renderer identity, shared by the definition and its keyed body. */
 export const OFFICE_EDITOR_ID = '@deepseek-ai/dsh-hypersuperfluid/office-editor'
@@ -51,7 +52,9 @@ const MESSAGE = {
  */
 export function OfficeEditorBody(props: DocumentPreviewProps): ReactNode {
   const { content, resourceAddress, useResource } = props
-  const file = useResource<'file'>(resourceAddress).value
+  const resource = useResource<'file'>(resourceAddress)
+  const file = resource.value
+  const unreadable = unreadableMessage(resource)
   const path = file?.absolutePath
   const revision = content.kind === 'renderer' ? content.revision : 0
   const [state, setState] = useState<EditorState>({ kind: 'loading' })
@@ -86,6 +89,7 @@ export function OfficeEditorBody(props: DocumentPreviewProps): ReactNode {
   }, [revision, version, state.kind])
 
   if (content.kind !== 'renderer') return null
+  if (unreadable !== undefined) return h('div', { style: UNREADABLE_STYLE }, unreadable)
   if (state.kind === 'loading') return h('div', { style: MESSAGE }, 'Opening the editor…')
   if (state.kind === 'failed') {
     return h('div', { style: MESSAGE }, `${state.message} You can still pick another viewer from the menu above.`)

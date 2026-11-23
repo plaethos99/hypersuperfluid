@@ -21,6 +21,8 @@ const host = {
     'mcp-bridge': 'src/mcp-bridge.ts',
     'office-editor': 'src/office-editor/index.ts',
     'office-editor-tools': 'src/office-editor/tools.ts',
+    creative: 'src/creative/index.ts',
+    'creative-tools': 'src/creative/tools.ts',
   },
   outDir: 'lib',
   format: 'esm',

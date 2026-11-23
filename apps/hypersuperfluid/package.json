@@ -31,7 +31,9 @@
     "./allowlist": "./lib/allowlist.js",
     "./acp-chat": "./lib/acp-chat.js",
     "./office-editor": "./lib/office-editor.js",
-    "./office-editor/tools": "./lib/office-editor-tools.js"
+    "./office-editor/tools": "./lib/office-editor-tools.js",
+    "./creative": "./lib/creative.js",
+    "./creative/tools": "./lib/creative-tools.js"
   },
   "files": [
     "lib",

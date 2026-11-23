@@ -66,6 +66,7 @@ To use a subscription instead of an API key, open **Settings → Subscriptions**
 | Career and job search | CareerOps plus deep company research; never submits anything for you |
 | Research and analysis | Deep, cited research and data analysis |
 | Office documents | Word, Excel, PowerPoint, PDF editing, UML and other diagrams |
+| Creative | Storyboards for videos, ads and stories; draws each scene's frames in your Google Flow or Grok Imagine |
 | Autopilot | Give it a folder and a goal; it works alone and reports back |
 | Guide | Plain-language, step-by-step help from screenshots |
 

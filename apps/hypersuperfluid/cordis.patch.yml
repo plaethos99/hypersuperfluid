@@ -71,6 +71,10 @@
     # local server. Clicking such a file opens it in an editor tab; office_edit changes it from chat.
     - id: hsf-office-editor
       name: '@deepseek-ai/dsh-hypersuperfluid/office-editor'
+    # Creative: storyboards (*.storyboard.json) shown as a board whose Proceed button draws each scene's start and end
+    # frames in the person's own Google Flow or Grok Imagine account, in browser windows with profiles of their own.
+    - id: hsf-creative
+      name: '@deepseek-ai/dsh-hypersuperfluid/creative'
     # Browser and desktop control are opt-in overlays: see optional/ and README.md.
 
     # The working principles every mode shares, rendered after DSH's own guidance. Each mode's persona prefix says who
@@ -109,6 +113,8 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
           - id: hsf-office-edit-tools
             name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
+          - id: hsf-creative-tools
+            name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
           - id: core
             name: cordis:group
             group: true
@@ -709,13 +715,40 @@
             group: true
             config: *core
 
+    - id: preset-creative
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: creative
+        name: "Creative"
+        description: "Plans videos, ads and stories as storyboards and draws each scene's start and end frames in your Google Flow or Grok Imagine."
+        order: 18
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                You are a creative director and storyboard artist powered by the {{model}} model: you plan videos, ads, shorts and stories scene by scene and write picture prompts that image models follow. Read the storyboards skill first.
+
+                Turn a brief into a storyboard with storyboard_save: a fixed style, the recurring characters' looks, and scenes with a start frame and an end frame. Then present the file so the person can open the board and press Proceed, which draws the frames in their own Google Flow account (Grok Imagine takes what Flow will not make). Draw with storyboard_draw only when they ask you to. When they ask for changes, change only those scenes and save again with the same scene ids.
+              suffix: *principles
+          - id: hsf-skills
+            name: '@deepseek-ai/dsh-hypersuperfluid/skills'
+          - id: hsf-learning
+            name: '@deepseek-ai/dsh-hypersuperfluid/learning'
+          - id: hsf-creative-tools
+            name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
+          - id: core
+            name: cordis:group
+            group: true
+            config: *core
+
     - id: preset-autopilot
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: autopilot
         name: "Autopilot"
         description: "Give it a folder and a goal: it plans, works on its own until the goal is met or it is truly blocked, verifies, and reports."
-        order: 18
+        order: 19
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'
@@ -742,7 +775,7 @@
         id: guide
         name: "Guide (plain language)"
         description: "Explains and guides step by step in plain language from what people type and the screenshots they send. Used by ask links; it cannot touch this computer."
-        order: 19
+        order: 20
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'

@@ -18,6 +18,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import type { DocumentPreviewDefinition, DocumentPreviewProps } from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import { UNREADABLE_STYLE, unreadableMessage } from './unreadable.ts'
 import { fileMediaUrl } from '@deepseek-ai/dsh-util-workspace-path'
 import { extensionOf } from './media-preview.ts'
 
@@ -102,7 +103,9 @@ const HINT = { position: 'absolute', left: 12, bottom: 10, fontSize: 12, color: 
  */
 export function ModelPreviewBody(props: DocumentPreviewProps): ReactNode {
   const { content, resourceAddress, useResource } = props
-  const file = useResource<'file'>(resourceAddress).value
+  const resource = useResource<'file'>(resourceAddress)
+  const file = resource.value
+  const unreadable = unreadableMessage(resource)
   const host = useRef<HTMLDivElement | null>(null)
   const [state, setState] = useState<{ kind: 'loading' } | { kind: 'ready'; triangles: number } | { kind: 'failed'; reason: string }>({ kind: 'loading' })
   const path = file?.absolutePath
@@ -224,6 +227,7 @@ export function ModelPreviewBody(props: DocumentPreviewProps): ReactNode {
   }, [path, version, revision])
 
   if (content.kind !== 'renderer') return null
+  if (unreadable !== undefined) return h('div', { style: UNREADABLE_STYLE }, unreadable)
   return h('div', { style: { position: 'relative', height: '100%', minHeight: 240 } },
     h('div', { ref: host, style: { position: 'absolute', inset: 0 } }),
     state.kind === 'ready' ? h('div', { style: HINT }, `${state.triangles.toLocaleString()} triangles · drag to orbit, scroll to zoom, right-drag to pan`)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AUDIO_EXTENSIONS, cssOf, extensionOf, isAudio, mediaPreviewDefinition, VIDEO_EXTENSIONS } from '../src/client/media-preview.ts'
 import { MODEL_EXTENSIONS, modelPreviewDefinition, resourceUrl } from '../src/client/model-preview.ts'
+import { unreadableMessage } from '../src/client/unreadable.ts'
 
 const BASE = 'http://127.0.0.1:7420/'
 
@@ -38,5 +39,15 @@ describe('3D preview', () => {
       .toBe(`${BASE}api/file?path=${encodeURIComponent('/models/textures/paint.png')}`)
     expect(resourceUrl('hsf-model-relative:/./car.bin', model, 'C:\\models\\', BASE))
       .toBe(`${BASE}api/file?path=${encodeURIComponent('C:\\models\\car.bin')}`)
+  })
+})
+
+describe('a file that cannot be read', () => {
+  it('says so instead of loading forever', () => {
+    expect(unreadableMessage({ status: 'loading', value: undefined })).toBeUndefined()
+    expect(unreadableMessage({ status: 'failed', value: { version: '1' }, failure: { message: 'gone' } })).toBeUndefined()
+    expect(unreadableMessage({ status: 'failed', value: undefined, failure: { message: 'no entry at "a.docx".' } }))
+      .toBe('This file can\'t be opened (no entry at "a.docx"). It may have been moved or deleted.')
+    expect(unreadableMessage({ status: 'failed', value: undefined, failure: undefined })).toBe('This file can\'t be opened. It may have been moved or deleted.')
   })
 })

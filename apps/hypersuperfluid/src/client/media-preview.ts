@@ -7,6 +7,7 @@
 
 import { createElement as h, useEffect, useState, type ReactNode } from 'react'
 import type { DocumentPreviewDefinition, DocumentPreviewProps } from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import { UNREADABLE_STYLE, unreadableMessage } from './unreadable.ts'
 import { fileMediaUrl } from '@deepseek-ai/dsh-util-workspace-path'
 
 /** Renderer identity, shared by the definition and its keyed body. */
@@ -49,13 +50,16 @@ const BOX = 'display:flex;flex-direction:column;align-items:center;justify-conte
  */
 export function MediaPreviewBody(props: DocumentPreviewProps): ReactNode {
   const { content, resourceAddress, useResource } = props
-  const file = useResource<'file'>(resourceAddress).value
+  const resource = useResource<'file'>(resourceAddress)
+  const file = resource.value
+  const unreadable = unreadableMessage(resource)
   const [failed, setFailed] = useState(false)
   const path = file?.absolutePath
   const url = path === undefined ? undefined : fileMediaUrl(document.baseURI, path)
   const revision = content.kind === 'renderer' ? content.revision : 0
   useEffect(() => { setFailed(false) }, [url, revision])
   if (content.kind !== 'renderer') return null
+  if (unreadable !== undefined) return h('div', { style: UNREADABLE_STYLE }, unreadable)
   if (file === undefined) return h('div', { style: cssOf(BOX) }, 'Loading…')
   if (url === undefined) {
     return h('div', { style: cssOf(BOX) }, 'This file can only be played from the app on the computer that holds it.')
