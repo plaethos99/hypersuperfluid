@@ -92,12 +92,16 @@ function isSelectionReply(value: unknown): value is { choice: string; why: strin
  */
 export function renderOutcome(result: ModeResult, selection: Selection, runDir: string, libraryEntry: string | undefined): string {
   const diff = join(runDir, 'rollouts', selection.label, 'changes.diff')
-  const fellBack = result.stages.filter(stage => stage.fellBack).map(stage => stage.label)
+  const failed = result.stages.filter(stage => stage.executionFailed)
+  const fellBack = result.stages.filter(stage => stage.fellBack && !stage.executionFailed).map(stage => stage.label)
   return [
     `Refinement finished (${result.mode}, k=${result.k}): ${result.ledger.rollouts.length} rollouts and ${result.ledger.stages.length} editor sessions.`,
     `Adopted: ${selection.label}${selection.fellBack ? ' (selection failed, so this is the first delivered final, not a judged choice)' : ''}.`,
     ...selection.why === '' ? [] : [`Why: ${selection.why}`],
     ...fellBack.length > 0 ? [`Stages that kept the inherited harness after invalid proposals: ${fellBack.join(', ')}.`] : [],
+    ...failed.length > 0
+      ? [`Editor sessions that failed to run, so this was not a full refinement: ${failed.map(stage => `${stage.label} (${stage.error})`).join('; ')}. Run it again once the model works.`]
+      : [],
     `Result reply: ${join(runDir, 'rollouts', selection.label, 'output.md')}`,
     `Result patch, NOT applied to the workspace: ${diff}`,
     `Adopted harness: ${join(runDir, 'harnesses', selection.label)}`,
@@ -194,7 +198,8 @@ export function apply(ctx: Context, config: Config): void {
               const selection = await select(executor, result, workspace)
               chosen = selection.label
               const adopted = result.trees[selection.label] as Tree
-              const entry = library.add(executor.runId, adopted, selection)
+              // A run whose editors failed is not a refinement, so its lesson would teach later runs nothing true (Harness² #110).
+              const entry = result.stages.some(stage => stage.executionFailed) ? undefined : library.add(executor.runId, adopted, selection)
               const text = renderOutcome(result, selection, executor.runDir, entry)
               job.append(`${text}\n`)
               return { status: 'completed', detail: `adopted ${selection.label}` }

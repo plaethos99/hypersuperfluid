@@ -73,6 +73,8 @@ export interface Stage {
   readonly fellBack: boolean
   /** Its last problem, when it fell back. */
   readonly error: string
+  /** Whether its editor session failed to run, as opposed to proposing something invalid (Harness² #110). */
+  readonly executionFailed: boolean
   /** The editor's notes. */
   readonly notes: string
 }
@@ -175,7 +177,7 @@ class Run {
         reply = await this.executor.edit({ label, mission, start, ...evidence, ...feedback === undefined ? {} : { feedback } })
       } catch (error: unknown) {
         this.signal.throwIfAborted()
-        return this.fellBack(label, dim, fallback, String(error))
+        return this.fellBack(label, dim, fallback, String(error), true)
       }
       if (reply.tree === undefined) {
         feedback = 'The harness directory did not come back from your session. Edit the files in `harness/` in place.'
@@ -197,7 +199,7 @@ class Run {
       }
       const change = diffTrees(fallback, reply.tree)
       return {
-        label, dim, tree: reply.tree, fellBack: false, error: '',
+        label, dim, tree: reply.tree, fellBack: false, error: '', executionFailed: false,
         keptBase: change.added.length + change.removed.length + change.modified.length === 0,
         notes: (NOTES_PATTERN.exec(reply.notes)?.[1] ?? reply.notes).trim(),
       }
@@ -205,8 +207,8 @@ class Run {
     return this.fellBack(label, dim, fallback, feedback ?? 'no valid proposal')
   }
 
-  private fellBack(label: string, dim: string, fallback: Tree, error: string): Stage {
-    return { label, dim, tree: { ...fallback }, keptBase: true, fellBack: true, error: error.slice(0, 400), notes: '' }
+  private fellBack(label: string, dim: string, fallback: Tree, error: string, executionFailed = false): Stage {
+    return { label, dim, tree: { ...fallback }, keptBase: true, fellBack: true, error: error.slice(0, 400), executionFailed, notes: '' }
   }
 
   record(stages: readonly Stage[]): void {

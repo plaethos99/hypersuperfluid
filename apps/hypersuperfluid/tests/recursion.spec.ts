@@ -88,7 +88,16 @@ describe('recursion engine', () => {
     executor.edit = () => Promise.resolve({ tree: { 'random/file.txt': 'x' }, rejected: ['random/file.txt'], notes: '' })
     const result = await runParallel(options(executor, 1))
     expect(result.stages.every(stage => stage.fellBack)).toBe(true)
+    expect(result.stages.some(stage => stage.executionFailed)).toBe(false)
     expect(result.trees.agg1).toEqual({ [ALWAYS_ON]: 'base\n' })
+    expect(result.ledger.rollouts).toHaveLength(4)
+  })
+
+  it('marks an editor session that failed to run apart from an invalid proposal', async () => {
+    const executor = new FakeExecutor()
+    executor.edit = () => Promise.reject(new Error('model unavailable'))
+    const result = await runParallel(options(executor, 1))
+    expect(result.stages.every(stage => stage.fellBack && stage.executionFailed)).toBe(true)
     expect(result.ledger.rollouts).toHaveLength(4)
   })
 

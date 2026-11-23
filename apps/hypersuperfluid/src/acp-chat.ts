@@ -38,7 +38,7 @@ import {
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import { LlmAdapter, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {
   ContentBlock, GenerateOptions, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, RequestMessage, StreamChunk,
   ToolCallId, ToolSchema,
@@ -140,24 +140,8 @@ function vendorModel(id: string, entry: Record<string, unknown> | undefined): Ve
  */
 export function vendorModels(response: unknown): VendorModelState | undefined {
   const body = record(response)
-  const options: unknown[] = Array.isArray(body?.configOptions) ? body.configOptions as unknown[] : []
-  for (const raw of options) {
-    const option = record(raw)
-    const id = nonEmpty(option?.id)
-    if (option === undefined || id === undefined || option.type !== 'select') continue
-    if (option.category !== 'model' && !(option.category == null && id === 'model')) continue
-    const values: unknown[] = Array.isArray(option.options) ? option.options as unknown[] : []
-    const models: VendorModel[] = []
-    for (const item of values.flatMap((entry) => {
-      const group = record(entry)
-      return Array.isArray(group?.options) ? group.options as unknown[] : [entry]
-    })) {
-      const value = record(item)
-      const modelId = nonEmpty(value?.value)
-      if (modelId !== undefined) models.push(vendorModel(modelId, value))
-    }
-    if (models.length > 0) return { models, initial: nonEmpty(option.currentValue), configId: id }
-  }
+  const select = configSelect(response, 'model', 'model')
+  if (select !== undefined) return { models: select.values, initial: select.current, configId: select.configId }
   const legacy = record(body?.models)
   const available: unknown[] = Array.isArray(legacy?.availableModels) ? legacy.availableModels as unknown[] : []
   const models: VendorModel[] = []
@@ -167,6 +151,43 @@ export function vendorModels(response: unknown): VendorModelState | undefined {
     if (modelId !== undefined) models.push(vendorModel(modelId, value))
   }
   return models.length === 0 ? undefined : { models, initial: nonEmpty(legacy?.currentModelId), configId: undefined }
+}
+
+/** A select config option a CLI session offers. */
+export interface VendorSelect {
+  readonly configId: string
+  readonly values: readonly VendorModel[]
+  /** The value when the session started. */
+  readonly current: string | undefined
+}
+
+/**
+ * Reads one select config option from a `session/new` response, by its category or, without one, by its usual id.
+ * @param response - the raw response.
+ * @param category - the ACP category, such as `model` or `thought_level`.
+ * @param usualId - the id that identifies it when the CLI sends no category.
+ * @returns the option, or undefined when the session has none with values.
+ */
+export function configSelect(response: unknown, category: string, usualId: string): VendorSelect | undefined {
+  const options: unknown[] = Array.isArray(record(response)?.configOptions) ? record(response)?.configOptions as unknown[] : []
+  for (const raw of options) {
+    const option = record(raw)
+    const id = nonEmpty(option?.id)
+    if (option === undefined || id === undefined || option.type !== 'select') continue
+    if (option.category !== category && !(option.category == null && id === usualId)) continue
+    const entries: unknown[] = Array.isArray(option.options) ? option.options as unknown[] : []
+    const values: VendorModel[] = []
+    for (const item of entries.flatMap((entry) => {
+      const group = record(entry)
+      return Array.isArray(group?.options) ? group.options as unknown[] : [entry]
+    })) {
+      const value = record(item)
+      const valueId = nonEmpty(value?.value)
+      if (valueId !== undefined) values.push(vendorModel(valueId, value))
+    }
+    if (values.length > 0) return { configId: id, values, current: nonEmpty(option.currentValue) }
+  }
+  return undefined
 }
 
 /** The MCP server name the CLI sees; its tools appear to the vendor as `hypersuperfluid` tools. */
@@ -409,6 +430,10 @@ interface ChatProcess {
   models: VendorModelState | undefined
   /** The vendor model the session runs now, when known. */
   model: string | undefined
+  /** The reasoning levels the session offers (a `thought_level` option), when it lists any. */
+  efforts: VendorSelect | undefined
+  /** The reasoning level the session runs now, when known. */
+  effort: string | undefined
   mcp: McpRegistration | undefined
   /** The chat's DSH tools, refreshed each step. */
   tools: readonly ToolSchema[]
@@ -449,6 +474,8 @@ export class AcpChatAdapter extends LlmAdapter {
   private readonly byRoute = new Map<string, ResolvedCli>()
   private readonly host = new McpHost()
   /** Each route's discovered models; a failed look is retried after a minute. */
+  /** Each route's reasoning levels, as its last session listed them. */
+  private readonly efforts = new Map<string, readonly VendorModel[]>()
   private readonly discovered = new Map<string, { readonly at: number; models: Promise<readonly VendorModel[]>; failed: boolean }>()
 
   constructor(
@@ -499,8 +526,14 @@ export class AcpChatAdapter extends LlmAdapter {
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const cli = this.cli(provider)
     const name = model === MODEL_ID ? 'your plan' : ((await this.vendorModelsOf(provider)).find(entry => entry.id === model)?.name ?? model)
+    const efforts = this.efforts.get(provider) ?? []
     // The vendor agent manages its own context, so DSH never compacts or hands off on its behalf.
-    return { provider, id: model, name: `${cli.label} · ${name}`, inputModalities: ['text'], context: { contextWindow: 10_000_000 } }
+    return {
+      provider, id: model, name: `${cli.label} · ${name}`, inputModalities: ['text'], context: { contextWindow: 10_000_000 },
+      ...(efforts.length === 0
+        ? {}
+        : { reasoning: { efforts: efforts.map(effort => ({ id: ReasoningEffortId(effort.id), name: effort.name })) } }),
+    }
   }
 
   /**
@@ -532,13 +565,35 @@ export class AcpChatAdapter extends LlmAdapter {
     // A CLI that answers after the timeout is still stopped.
     starting.then(chat => this.stop(chat), () => {}).catch(() => {})
     const chat = await withTimeout(starting, 30_000, 'the CLI did not answer within 30 seconds')
+    if (chat.efforts !== undefined) this.efforts.set(provider, chat.efforts.values)
     return chat.models?.models
   }
 
   /** Remembers what a chat's session lists, so the picker shows it without another look. */
-  private learn(provider: string, state: VendorModelState | undefined): void {
+  private learn(provider: string, state: VendorModelState | undefined, efforts: VendorSelect | undefined): void {
+    if (efforts !== undefined) this.efforts.set(provider, efforts.values)
     if (state === undefined) return
     this.discovered.set(provider, { at: Date.now(), failed: false, models: Promise.resolve(state.models) })
+  }
+
+  /**
+   * Sets the session's reasoning level to the chat's pick; no pick returns it to the level it started with. A CLI that
+   * refuses keeps its level, since the level never decides whether the turn can run.
+   * @param chat - the chat.
+   * @param effort - the picked level.
+   */
+  private async useEffort(chat: ChatProcess, effort: string | undefined): Promise<void> {
+    const efforts = chat.efforts
+    const target = effort ?? efforts?.current
+    if (efforts === undefined || target === undefined || target === chat.effort) return
+    if (!efforts.values.some(value => value.id === target)) return
+    try {
+      const params = { sessionId: chat.sessionId, configId: efforts.configId, value: target }
+      await chat.agent.request(methods.agent.session.setConfigOption, params)
+      chat.effort = target
+    } catch (error) {
+      this.ctx.logger.info(`hsf-acp-chat: the CLI kept its reasoning level: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**
@@ -634,7 +689,7 @@ export class AcpChatAdapter extends LlmAdapter {
     })
     exited.catch(() => {})
     const chat: ChatProcess = {
-      child, agent, cwd, sessionId: '', models: undefined, model: undefined, mcp: undefined, tools, replies: 0, inTurn: false, outcome: undefined,
+      child, agent, cwd, sessionId: '', models: undefined, model: undefined, efforts: undefined, effort: undefined, mcp: undefined, tools, replies: 0, inTurn: false, outcome: undefined,
       buffered: [], queued: [], waiting: new Map(), reader: undefined, idle: undefined,
     }
     try {
@@ -655,7 +710,9 @@ export class AcpChatAdapter extends LlmAdapter {
       chat.sessionId = session.sessionId
       chat.models = vendorModels(session)
       chat.model = chat.models?.initial
-      if (tools.length > 0) this.learn(provider, chat.models)
+      chat.efforts = configSelect(session, 'thought_level', 'reasoning_effort')
+      chat.effort = chat.efforts?.current
+      if (tools.length > 0) this.learn(provider, chat.models, chat.efforts)
       holder.chat = chat
       return chat
     } catch (error) {
@@ -776,6 +833,7 @@ export class AcpChatAdapter extends LlmAdapter {
     if (chat.idle !== undefined) clearTimeout(chat.idle)
     try {
       await this.useModel(chat, options.provider, options.model)
+      await this.useEffort(chat, options.reasoningEffort)
     } catch (error) {
       this.armIdle(key, chat)
       throw error

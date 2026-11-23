@@ -21,11 +21,12 @@ const pending = new Map()
 const send = (message) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\\n')
 let servers = []
 let model = 'default-model'
+let effort = 'medium'
 const listed = [{ modelId: 'default-model', name: 'Default' }, { modelId: 'free/fast', name: 'Fast (free)' }]
 const modelsOf = () => mode === 'models'
   ? { models: { availableModels: listed, currentModelId: model } }
   : mode === 'config'
-    ? { configOptions: [{ id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: model, options: [{ group: 'g', name: 'All', options: listed.map(entry => ({ value: entry.modelId, name: entry.name })) }] }] }
+    ? { configOptions: [{ id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: model, options: [{ group: 'g', name: 'All', options: listed.map(entry => ({ value: entry.modelId, name: entry.name })) }] }, { id: 'reasoning_effort', name: 'Reasoning effort', category: 'thought_level', type: 'select', currentValue: effort, options: ['low', 'medium', 'high'].map(value => ({ value, name: value })) }] }
     : {}
 // An MCP client over the stdio server the session was given: list the tools, call the first one, report what it said.
 function useTool(server) {
@@ -64,7 +65,8 @@ process.stdin.on('data', (chunk) => {
     } else if (message.method === 'session/set_model' && mode === 'models') {
       model = message.params.modelId; send({ id: message.id, result: {} })
     } else if (message.method === 'session/set_config_option' && mode === 'config') {
-      model = message.params.value; send({ id: message.id, result: { configOptions: modelsOf().configOptions } })
+      if (message.params.configId === 'model') model = message.params.value; else effort = message.params.value
+      send({ id: message.id, result: { configOptions: modelsOf().configOptions } })
     } else if (message.method === 'session/prompt') {
       turns += 1
       const sessionId = message.params.sessionId
@@ -80,7 +82,7 @@ process.stdin.on('data', (chunk) => {
       update({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking' } })
       update({ sessionUpdate: 'tool_call', toolCallId: 't' + turns, title: 'Read notes.txt', kind: 'read', status: 'pending' })
       pending.set('p' + turns, (result) => {
-        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: (mode === 'ok' ? '' : '[' + model + '] ') + 'session ' + sessions + ' turn ' + turns + ' permission ' + result.outcome.outcome + ': ' } })
+        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: (mode === 'ok' ? '' : '[' + model + (mode === 'config' ? ' ' + effort : '') + '] ') + 'session ' + sessions + ' turn ' + turns + ' permission ' + result.outcome.outcome + ': ' } })
         update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: text } })
         send({ id: message.id, result: { stopReason: 'end_turn' } })
       })
@@ -208,11 +210,18 @@ describe('AcpChatAdapter', () => {
         expect(models.map(model => model.id)).toEqual([MODEL_ID, 'default-model', 'free/fast'])
         expect(models[2]?.name).toBe('Fake CLI · Fast (free)')
         expect((await chat.resolveModel('sub-fake', 'free/fast')).name).toBe('Fake CLI · Fast (free)')
+        const tag = (name: string, effort = 'medium'): string => mode === 'config' ? `[${name} ${effort}]` : `[${name}]`
         const first = await collect(chat.stream(options([user('hello')], { model: 'free/fast' })))
-        expect(textOf(first)).toBe('[free/fast] session 1 turn 1 permission selected: hello')
+        expect(textOf(first)).toBe(`${tag('free/fast')} session 1 turn 1 permission selected: hello`)
         const history = [user('hello'), reply(textOf(first)), user('back')]
         const second = await collect(chat.stream(options(history)))
-        expect(textOf(second)).toBe('[default-model] session 1 turn 2 permission selected: back')
+        expect(textOf(second)).toBe(`${tag('default-model')} session 1 turn 2 permission selected: back`)
+        if (mode === 'config') {
+          const reasoning = (await chat.resolveModel('sub-fake', 'free/fast')).reasoning
+          expect(reasoning?.efforts.map(effort => effort.id)).toEqual(['low', 'medium', 'high'])
+          const third = await collect(chat.stream(options([...history, reply(textOf(second)), user('think')], { reasoningEffort: 'high' as never })))
+          expect(textOf(third)).toBe(`${tag('default-model', 'high')} session 1 turn 3 permission selected: think`)
+        }
       } finally {
         await chat.dispose()
       }
