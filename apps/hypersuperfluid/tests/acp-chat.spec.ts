@@ -20,6 +20,13 @@ let turns = 0
 const pending = new Map()
 const send = (message) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\\n')
 let servers = []
+let model = 'default-model'
+const listed = [{ modelId: 'default-model', name: 'Default' }, { modelId: 'free/fast', name: 'Fast (free)' }]
+const modelsOf = () => mode === 'models'
+  ? { models: { availableModels: listed, currentModelId: model } }
+  : mode === 'config'
+    ? { configOptions: [{ id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: model, options: [{ group: 'g', name: 'All', options: listed.map(entry => ({ value: entry.modelId, name: entry.name })) }] }] }
+    : {}
 // An MCP client over the stdio server the session was given: list the tools, call the first one, report what it said.
 function useTool(server) {
   const { spawn } = require('node:child_process')
@@ -53,7 +60,11 @@ process.stdin.on('data', (chunk) => {
     if (message.method === 'initialize') send({ id: message.id, result: { protocolVersion: message.params.protocolVersion, agentCapabilities: {}, authMethods: [] } })
     else if (message.method === 'session/new') {
       if (mode === 'auth') send({ id: message.id, error: { code: -32000, message: 'Authentication required' } })
-      else { sessions += 1; servers = message.params.mcpServers; send({ id: message.id, result: { sessionId: 's' + sessions } }) }
+      else { sessions += 1; servers = message.params.mcpServers; send({ id: message.id, result: { sessionId: 's' + sessions, ...modelsOf() } }) }
+    } else if (message.method === 'session/set_model' && mode === 'models') {
+      model = message.params.modelId; send({ id: message.id, result: {} })
+    } else if (message.method === 'session/set_config_option' && mode === 'config') {
+      model = message.params.value; send({ id: message.id, result: { configOptions: modelsOf().configOptions } })
     } else if (message.method === 'session/prompt') {
       turns += 1
       const sessionId = message.params.sessionId
@@ -69,7 +80,7 @@ process.stdin.on('data', (chunk) => {
       update({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking' } })
       update({ sessionUpdate: 'tool_call', toolCallId: 't' + turns, title: 'Read notes.txt', kind: 'read', status: 'pending' })
       pending.set('p' + turns, (result) => {
-        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'session ' + sessions + ' turn ' + turns + ' permission ' + result.outcome.outcome + ': ' } })
+        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: (mode === 'ok' ? '' : '[' + model + '] ') + 'session ' + sessions + ' turn ' + turns + ' permission ' + result.outcome.outcome + ': ' } })
         update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: text } })
         send({ id: message.id, result: { stopReason: 'end_turn' } })
       })
@@ -109,6 +120,7 @@ function adapter(mode = 'ok', permission: 'allow' | 'reject' = 'allow'): AcpChat
     subprocess: { spawn: (spec: SubprocessSpawnSpec) => { spawned.push([...spec.argv]); return spawnSeam(spec) } },
     sessions: { get: () => undefined },
     get: () => undefined,
+    logger: { info: () => {} },
   } as unknown as Context
   return new AcpChatAdapter(ctx, { permission, idleMinutes: 0 }, [{
     id: 'fake', label: 'Fake CLI', command: 'fake', args: [], argv: [process.execPath, join(dir, 'agent.js'), mode], env: {},
@@ -181,8 +193,31 @@ describe('AcpChatAdapter', () => {
     const chat = adapter()
     expect(chat.routes).toEqual(['sub-fake'])
     expect(chat.providerInfo('sub-fake').name).toBe('Fake CLI (subscription)')
-    expect((await chat.listModels('sub-fake')).map(model => model.id)).toEqual([MODEL_ID])
+    try {
+      expect((await chat.listModels('sub-fake')).map(model => model.id)).toEqual([MODEL_ID])
+    } finally {
+      await chat.dispose()
+    }
   })
+
+  for (const mode of ['models', 'config']) {
+    it(`offers and switches to every model the CLI lists (${mode})`, async () => {
+      const chat = adapter(mode)
+      try {
+        const models = await chat.listModels('sub-fake')
+        expect(models.map(model => model.id)).toEqual([MODEL_ID, 'default-model', 'free/fast'])
+        expect(models[2]?.name).toBe('Fake CLI · Fast (free)')
+        expect((await chat.resolveModel('sub-fake', 'free/fast')).name).toBe('Fake CLI · Fast (free)')
+        const first = await collect(chat.stream(options([user('hello')], { model: 'free/fast' })))
+        expect(textOf(first)).toBe('[free/fast] session 1 turn 1 permission selected: hello')
+        const history = [user('hello'), reply(textOf(first)), user('back')]
+        const second = await collect(chat.stream(options(history)))
+        expect(textOf(second)).toBe('[default-model] session 1 turn 2 permission selected: back')
+      } finally {
+        await chat.dispose()
+      }
+    })
+  }
 
   it('keeps one CLI session per chat and sends only the new input', async () => {
     const chat = adapter()

@@ -13,11 +13,16 @@
  * One CLI session backs each DSH session while the app runs, so a turn sends only the new user input. When that
  * session is missing (first turn, after a restart, or after a retry changed the history), a fresh CLI session gets
  * the conversation so far as text.
+ *
+ * Each CLI offers its plan's default model (`plan`) and every model its ACP session lists (free ones included), as
+ * the CLI reports them through a `model` config option or the older `models` field. Picking one switches the chat's
+ * CLI session to it before the turn.
  * @module hypersuperfluid/acp-chat
  */
 
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { Readable as NodeReadable, Writable as NodeWritable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import {
@@ -60,6 +65,8 @@ export interface ChatCliConfig {
   command: string
   /** Arguments that start its ACP server. */
   args: string[]
+  /** Model ids to offer when the CLI's session lists none; the CLI must accept them as its model. */
+  models?: string[]
 }
 
 /** Plugin settings. */
@@ -81,6 +88,7 @@ export const Config: z<Config> = z.object({
     label: z.string().required(),
     command: z.string().required(),
     args: z.array(z.string()).required(),
+    models: z.array(z.string()),
   })).default([]),
   permission: z.union(['allow', 'reject']).default('allow'),
   idleMinutes: z.natural().default(30),
@@ -94,6 +102,72 @@ export function routeOf(id: string): string {
 
 /** The model id each route offers: the CLI's own default model on the person's plan. */
 export const MODEL_ID = 'plan'
+
+/** One model a vendor CLI offers in its sessions. */
+export interface VendorModel {
+  readonly id: string
+  readonly name: string
+  readonly description?: string
+}
+
+/** The models a CLI session offers, and how to switch between them. */
+export interface VendorModelState {
+  readonly models: readonly VendorModel[]
+  /** The session's model when it started: the plan's default. */
+  readonly initial: string | undefined
+  /** The `model` config option's id; absent means the older `session/set_model` method. */
+  readonly configId: string | undefined
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+}
+
+function nonEmpty(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
+function vendorModel(id: string, entry: Record<string, unknown> | undefined): VendorModel {
+  const description = nonEmpty(entry?.description)
+  return { id, name: nonEmpty(entry?.name) ?? id, ...(description === undefined ? {} : { description }) }
+}
+
+/**
+ * Reads the models a `session/new` response offers: a select config option of category `model` (current ACP), or the
+ * older `models: { availableModels, currentModelId }` that OpenCode and Gemini CLI send.
+ * @param response - the raw `session/new` response.
+ * @returns the models, or undefined when the CLI lists none.
+ */
+export function vendorModels(response: unknown): VendorModelState | undefined {
+  const body = record(response)
+  const options: unknown[] = Array.isArray(body?.configOptions) ? body.configOptions as unknown[] : []
+  for (const raw of options) {
+    const option = record(raw)
+    const id = nonEmpty(option?.id)
+    if (option === undefined || id === undefined || option.type !== 'select') continue
+    if (option.category !== 'model' && !(option.category == null && id === 'model')) continue
+    const values: unknown[] = Array.isArray(option.options) ? option.options as unknown[] : []
+    const models: VendorModel[] = []
+    for (const item of values.flatMap((entry) => {
+      const group = record(entry)
+      return Array.isArray(group?.options) ? group.options as unknown[] : [entry]
+    })) {
+      const value = record(item)
+      const modelId = nonEmpty(value?.value)
+      if (modelId !== undefined) models.push(vendorModel(modelId, value))
+    }
+    if (models.length > 0) return { models, initial: nonEmpty(option.currentValue), configId: id }
+  }
+  const legacy = record(body?.models)
+  const available: unknown[] = Array.isArray(legacy?.availableModels) ? legacy.availableModels as unknown[] : []
+  const models: VendorModel[] = []
+  for (const item of available) {
+    const value = record(item)
+    const modelId = nonEmpty(value?.modelId) ?? nonEmpty(value?.id)
+    if (modelId !== undefined) models.push(vendorModel(modelId, value))
+  }
+  return models.length === 0 ? undefined : { models, initial: nonEmpty(legacy?.currentModelId), configId: undefined }
+}
 
 /** The MCP server name the CLI sees; its tools appear to the vendor as `hypersuperfluid` tools. */
 export const MCP_SERVER_NAME = 'hypersuperfluid'
@@ -331,6 +405,10 @@ interface ChatProcess {
   readonly agent: AcpAgent
   readonly cwd: string
   sessionId: string
+  /** The models the session offers, when it lists any. */
+  models: VendorModelState | undefined
+  /** The vendor model the session runs now, when known. */
+  model: string | undefined
   mcp: McpRegistration | undefined
   /** The chat's DSH tools, refreshed each step. */
   tools: readonly ToolSchema[]
@@ -370,6 +448,8 @@ export class AcpChatAdapter extends LlmAdapter {
   private readonly chats = new Map<string, ChatProcess>()
   private readonly byRoute = new Map<string, ResolvedCli>()
   private readonly host = new McpHost()
+  /** Each route's discovered models; a failed look is retried after a minute. */
+  private readonly discovered = new Map<string, { readonly at: number; models: Promise<readonly VendorModel[]>; failed: boolean }>()
 
   constructor(
     private readonly ctx: Context,
@@ -397,20 +477,93 @@ export class AcpChatAdapter extends LlmAdapter {
     return { id: provider, name: `${this.cli(provider).label} (subscription)` }
   }
 
-  override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
+  override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     const cli = this.cli(provider)
-    return Promise.resolve([{
-      provider, id: MODEL_ID, name: `${cli.label} · your plan`,
-      description: `Runs ${cli.label} on your own subscription. It keeps its own tools and gets this chat's Hypersuperfluid tools, and it receives text only.`,
-      inputModalities: ['text'],
-      badge: { text: 'Subscription', tone: 'info' },
-    }])
+    const models = await this.vendorModelsOf(provider)
+    return [
+      {
+        provider, id: MODEL_ID, name: `${cli.label} · your plan`,
+        description: `Runs ${cli.label} on your own subscription with its default model. It keeps its own tools and gets this chat's Hypersuperfluid tools, and it receives text only.`,
+        inputModalities: ['text'],
+        badge: { text: 'Subscription', tone: 'info' },
+      },
+      ...models.filter(model => model.id !== MODEL_ID).map((model): LlmModelInfo => ({
+        provider, id: model.id, name: `${cli.label} · ${model.name}`,
+        description: model.description ?? `Runs ${cli.label} on your own subscription with ${model.name}. It receives text only.`,
+        inputModalities: ['text'],
+        badge: { text: 'Subscription', tone: 'info' },
+      })),
+    ]
   }
 
-  override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
+  override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const cli = this.cli(provider)
+    const name = model === MODEL_ID ? 'your plan' : ((await this.vendorModelsOf(provider)).find(entry => entry.id === model)?.name ?? model)
     // The vendor agent manages its own context, so DSH never compacts or hands off on its behalf.
-    return Promise.resolve({ provider, id: model, name: `${cli.label} · your plan`, inputModalities: ['text'], context: { contextWindow: 10_000_000 } })
+    return { provider, id: model, name: `${cli.label} · ${name}`, inputModalities: ['text'], context: { contextWindow: 10_000_000 } }
+  }
+
+  /**
+   * The models a CLI offers: those its ACP session lists, else the configured ones. The first look starts the CLI once
+   * in a temporary folder, without tools or a prompt, so it spends nothing on the plan.
+   * @param provider - the route.
+   * @returns the models besides `plan`.
+   */
+  private vendorModelsOf(provider: string): Promise<readonly VendorModel[]> {
+    const cli = this.cli(provider)
+    const fallback = (cli.models ?? []).map((id): VendorModel => ({ id, name: id }))
+    const cached = this.discovered.get(provider)
+    if (cached !== undefined && (!cached.failed || Date.now() - cached.at < 60_000)) return cached.models
+    const entry = { at: Date.now(), failed: false, models: Promise.resolve<readonly VendorModel[]>(fallback) }
+    entry.models = this.probe(provider).then(
+      found => found ?? fallback,
+      (error: unknown) => {
+        entry.failed = true
+        this.ctx.logger.info(`hsf-acp-chat: could not list ${cli.label}'s models: ${error instanceof Error ? error.message : String(error)}`)
+        return fallback
+      },
+    )
+    this.discovered.set(provider, entry)
+    return entry.models
+  }
+
+  private async probe(provider: string): Promise<readonly VendorModel[] | undefined> {
+    const starting = this.start(provider, tmpdir(), [])
+    // A CLI that answers after the timeout is still stopped.
+    starting.then(chat => this.stop(chat), () => {}).catch(() => {})
+    const chat = await withTimeout(starting, 30_000, 'the CLI did not answer within 30 seconds')
+    return chat.models?.models
+  }
+
+  /** Remembers what a chat's session lists, so the picker shows it without another look. */
+  private learn(provider: string, state: VendorModelState | undefined): void {
+    if (state === undefined) return
+    this.discovered.set(provider, { at: Date.now(), failed: false, models: Promise.resolve(state.models) })
+  }
+
+  /**
+   * Switches the chat's CLI session to the picked model; `plan` returns it to the model it started with.
+   * @param chat - the chat.
+   * @param provider - its route.
+   * @param model - the picked model id.
+   */
+  private async useModel(chat: ChatProcess, provider: string, model: string): Promise<void> {
+    const target = model === MODEL_ID ? chat.models?.initial : model
+    if (target === undefined || target === chat.model) return
+    const cli = this.cli(provider)
+    try {
+      const configId = chat.models?.configId
+      if (configId === undefined) {
+        const method: string = SET_MODEL_METHOD
+        await chat.agent.request<unknown>(method, { sessionId: chat.sessionId, modelId: target })
+      } else {
+        await chat.agent.request(methods.agent.session.setConfigOption, { sessionId: chat.sessionId, configId, value: target })
+      }
+      chat.model = target
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`${cli.label} could not switch to the model ${target}: ${message}`, { cause: error })
+    }
   }
 
   /** Stops every CLI and the tool server. */
@@ -481,7 +634,7 @@ export class AcpChatAdapter extends LlmAdapter {
     })
     exited.catch(() => {})
     const chat: ChatProcess = {
-      child, agent, cwd, sessionId: '', mcp: undefined, tools, replies: 0, inTurn: false, outcome: undefined,
+      child, agent, cwd, sessionId: '', models: undefined, model: undefined, mcp: undefined, tools, replies: 0, inTurn: false, outcome: undefined,
       buffered: [], queued: [], waiting: new Map(), reader: undefined, idle: undefined,
     }
     try {
@@ -500,6 +653,9 @@ export class AcpChatAdapter extends LlmAdapter {
       await Promise.race([agent.request(methods.agent.initialize, { protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} }), exited])
       const session = await Promise.race([agent.request(methods.agent.session.new, { cwd, mcpServers }), exited])
       chat.sessionId = session.sessionId
+      chat.models = vendorModels(session)
+      chat.model = chat.models?.initial
+      if (tools.length > 0) this.learn(provider, chat.models)
       holder.chat = chat
       return chat
     } catch (error) {
@@ -618,6 +774,12 @@ export class AcpChatAdapter extends LlmAdapter {
     chat ??= await this.start(options.provider, cwd, tools)
     if (options.sessionId !== undefined) this.chats.set(key, chat)
     if (chat.idle !== undefined) clearTimeout(chat.idle)
+    try {
+      await this.useModel(chat, options.provider, options.model)
+    } catch (error) {
+      this.armIdle(key, chat)
+      throw error
+    }
     const shared = chat.mcp === undefined
       ? ''
       : `\n\n(Hypersuperfluid's own tools for this chat are on the MCP server "${MCP_SERVER_NAME}": ${chat.tools.map(tool => tool.name).join(', ')}. Use them when they fit, for example its built-in browser; a call may wait for the person's approval.)`
@@ -714,6 +876,23 @@ export class AcpChatAdapter extends LlmAdapter {
       }
     })
   }
+}
+
+/** The older ACP method that OpenCode and Gemini CLI use to switch a session's model. */
+const SET_MODEL_METHOD = 'session/set_model'
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => { reject(new Error(message)) }, ms)
+    timer.unref?.()
+    promise.then((value) => {
+      clearTimeout(timer)
+      resolve(value)
+    }, (error: unknown) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+  })
 }
 
 function settle(call: SharedCall, result: McpToolResult): void {
