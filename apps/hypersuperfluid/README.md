@@ -38,7 +38,7 @@ gh workflow disable e2e.yml
 
 ## Branding
 
-The app is named Hypersuperfluid. DeepSeek's brand guidelines reserve "DeepSeek Harness" and its marks; describing the app as "built on DSH" is allowed. Every icon comes from `branding/source.webp` through `branding/render-brand.mjs`, which writes the desktop and Web icons, the welcome wordmark and the browser plugin's images in `src/client/brand-assets.ts`. The plugin itself is `src/client/index.ts`, which the package build bundles into `lib/client.js`. After changing the artwork, run it and the tray renderer:
+The app is named Hypersuperfluid. DeepSeek's brand guidelines reserve "DeepSeek Harness" and its marks; describing the app as "built on DSH" is allowed. Every icon comes from `branding/source.webp` through `branding/render-brand.mjs`, which writes the desktop and Web icons, the welcome wordmark and the browser plugin's images in `src/client/brand-assets.ts`. The plugin itself is `src/client/index.ts`, which the package build bundles into `lib/client.js`. Its palette, `src/client/theme.ts`, layers `--dsw-*` token overrides over DSH's light and dark palettes, so Light, Dark and System keep working: midnight navy in the dark, a cool near-white in the light, the mark's gold as the accent and sapphire for links and the send button, with text at 4.5:1 contrast or more. After changing the artwork, run it and the tray renderer:
 
 ```bash
 node apps/hypersuperfluid/branding/render-brand.mjs

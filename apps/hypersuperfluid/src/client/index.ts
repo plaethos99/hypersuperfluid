@@ -1,8 +1,8 @@
 /**
  * The Hypersuperfluid brand, browser half: the sidebar mark and name, the home-screen mark and headline, the welcome
- * text, and the tab title and icon. DSH's own colours stay. Every contribution is an owned effect, so unloading the
- * plugin restores the previous state. The images are generated into `brand-assets.ts` by `branding/render-brand.mjs`.
- * It also adds Settings → Subscriptions (`subscriptions.ts`).
+ * text, the tab title and icon, and its own palette over DSH's light and dark ones (`theme.ts`). Every contribution
+ * is an owned effect, so unloading the plugin restores the previous state. The images are generated into
+ * `brand-assets.ts` by `branding/render-brand.mjs`. It also adds Settings → Subscriptions (`subscriptions.ts`).
  * @module hypersuperfluid/client
  */
 
@@ -13,12 +13,14 @@ import type { HeroBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-convers
 import type { LanguageRegistration, LocaleDict } from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the settings shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { createElement as h } from 'react'
 import { BRAND, EMBLEM, SMALL_MARK } from './brand-assets.ts'
 import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
+import { THEME_SOURCE, THEME_STYLE, TOKENS } from './theme.ts'
 
 /** Services this plugin needs. */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'theme']
 
 /** Below this edge the ring would only take room from the wings, so the tighter crop is drawn. */
 const EMBLEM_MIN_EDGE = 96
@@ -71,7 +73,7 @@ function BrandName() {
 function brandDocument(): () => void {
   const style = document.createElement('style')
   style.dataset.hsfBrand = ''
-  style.textContent = STYLE
+  style.textContent = STYLE + THEME_STYLE
   document.head.appendChild(style)
   const fixTitle = (): void => {
     if (TITLE_REPLACED.test(document.title)) document.title = document.title.replace(TITLE_REPLACED, BRAND)
@@ -114,6 +116,7 @@ export function apply(ctx: Context): void {
     }
   }
   ctx.effect(brandDocument, 'hsf-brand: document title, favicon and style')
+  ctx.effect(() => ctx.theme.overrideTokens(THEME_SOURCE, TOKENS), 'hsf-brand: palette')
   ctx.effect(() => {
     const style = document.createElement('style')
     style.dataset.hsfSubscriptions = ''
