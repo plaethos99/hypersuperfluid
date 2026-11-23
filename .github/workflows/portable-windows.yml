@@ -43,6 +43,9 @@ jobs:
           $missing = 'brand.js', 'client.js', 'workers.js', 'acp-chat.js', 'mcp-bridge.js', 'handoff.js', 'portal.js' |
             Where-Object { -not (Test-Path "apps/hypersuperfluid/lib/$_") }
           if ($missing) { Write-Error "The Hypersuperfluid bundle build is missing lib/$($missing -join ', lib/')"; exit 1 }
+          # The repository typecheck does not cover the bundle, and its build does not check types.
+          pnpm exec tsc --noEmit -p apps/hypersuperfluid
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       # Local packaging settings. There are no secrets in them: the update origins are placeholders, so update
       # checks in this build fail harmlessly.
       - name: Write packaging settings

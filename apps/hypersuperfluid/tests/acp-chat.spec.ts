@@ -72,6 +72,14 @@ process.stdin.on('data', (chunk) => {
       const sessionId = message.params.sessionId
       const text = message.params.prompt.map(block => block.text).join('')
       const update = (u) => send({ method: 'session/update', params: { sessionId, update: u } })
+      if (text.includes('WRITE_FILE')) {
+        const target = /WRITE_FILE (\\S+)/.exec(text)[1]
+        require('node:fs').writeFileSync(target, 'fake docx')
+        update({ sessionUpdate: 'tool_call', toolCallId: 'w' + turns, title: 'write', kind: 'edit', status: 'completed', locations: [{ path: target }] })
+        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Saved report.docx. ' + (text.includes('present') ? 'asked to present' : '') } })
+        send({ id: message.id, result: { stopReason: 'end_turn' } })
+        continue
+      }
       if (text.includes('USE_TOOL')) {
         useTool(servers[0]).then((said) => {
           update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: said } })
@@ -290,6 +298,31 @@ describe('AcpChatAdapter', () => {
     } finally {
       await chat.dispose()
       await ctx.fiber.dispose()
+    }
+  })
+
+  it('delivers files the vendor wrote with its own tools, so they get file cards', async () => {
+    const chat = adapter()
+    const tools = [{ name: 'present', description: 'Deliver files', parameters: { type: 'object', properties: {} } }]
+    const ask = `WRITE_FILE ${join(dir, 'report.docx')} please`
+    try {
+      const first = await collect(chat.stream(options([user(ask)], { tools })))
+      expect(textOf(first)).toContain('asked to present')
+      expect(reasoningOf(first)).toContain('▸ write report.docx')
+      const call = first.find(chunk => chunk.type === 'block-end' && chunk.block.type === 'tool-call')
+      expect(call).toMatchObject({ block: { type: 'tool-call', name: 'present', arguments: JSON.stringify({ files: [{ path: join(dir, 'report.docx') }] }) } })
+      expect(first.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+      const id = call !== undefined && call.type === 'block-end' && call.block.type === 'tool-call' ? call.block.id : ''
+      const history: RequestMessage[] = [
+        user(ask),
+        { role: 'assistant', id: 'a1', content: [call !== undefined && call.type === 'block-end' ? call.block : { type: 'text', text: '' }], source: { kind: 'model' } } as unknown as RequestMessage,
+        { role: 'tool', id: 't1', toolCallId: id, content: [{ type: 'text', text: 'presented' }], source: { kind: 'tool' } } as unknown as RequestMessage,
+      ]
+      const second = await collect(chat.stream(options(history, { tools })))
+      expect(textOf(second)).toBe('Delivered `report.docx`.')
+      expect(second.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+    } finally {
+      await chat.dispose()
     }
   })
 

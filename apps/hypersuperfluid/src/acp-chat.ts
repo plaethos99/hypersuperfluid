@@ -21,9 +21,10 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { Readable as NodeReadable, Writable as NodeWritable } from 'node:stream'
+import { basename, isAbsolute, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   client as createAcpClientApp,
@@ -380,7 +381,11 @@ export class BlockWriter {
       case 'tool_call':
         this.tools.set(update.toolCallId, update.title)
         // Calls to the shared tools show as DSH tool calls; repeating them here would show them twice.
-        if (!isSharedToolTitle(update.title)) this.write('reasoning', `\n▸ ${update.title}\n`)
+        if (!isSharedToolTitle(update.title)) {
+          const file = update.locations?.[0]?.path
+          const named = file === undefined || update.title.includes(basename(file)) ? update.title : `${update.title} ${basename(file)}`
+          this.write('reasoning', `\n▸ ${named}\n`)
+        }
         break
       case 'tool_call_update': {
         const title = update.title ?? this.tools.get(update.toolCallId) ?? 'tool'
@@ -401,6 +406,27 @@ function isSharedToolTitle(title: string): boolean {
 }
 
 const AUTH_ERROR = /auth|log ?in|sign ?in|credential|unauthori[sz]ed/iu
+
+/** The DSH tool that turns finished files into delivery cards with open and show-in-folder controls. */
+export const PRESENT_TOOL = 'present'
+
+/** The most files one automatic delivery names; `present` accepts 8 by default. */
+const MAX_DELIVERED = 8
+
+/**
+ * The files a vendor's own tool wrote, as its ACP update reports them: the locations of an edit, and the paths of
+ * diff content. Reads, searches, commands, deletions and moves name no delivered file.
+ * @param update - one ACP session update.
+ * @returns the paths, possibly relative.
+ */
+export function writtenFiles(update: SessionNotification['update']): string[] {
+  if (update.sessionUpdate !== 'tool_call' && update.sessionUpdate !== 'tool_call_update') return []
+  if (update.status === 'failed') return []
+  const paths: string[] = []
+  if (update.kind === 'edit') for (const location of update.locations ?? []) paths.push(location.path)
+  for (const content of update.content ?? []) if (content.type === 'diff' && content.newText !== '') paths.push(content.path)
+  return paths
+}
 
 /** A call to a shared tool, from the vendor through MCP. */
 interface SharedCall {
@@ -449,6 +475,12 @@ interface ChatProcess {
   readonly queued: SharedCall[]
   /** Shared calls handed to DSH and waiting for its results. */
   readonly waiting: Map<string, SharedCall>
+  /** Files the vendor's own tools wrote this turn, absolute. */
+  readonly written: Set<string>
+  /** Whether the vendor delivered files itself this turn. */
+  presented: boolean
+  /** The delivery this adapter added after the vendor's turn, waiting for its result. */
+  delivery: { readonly id: string; readonly names: readonly string[] } | undefined
   reader: Reader | undefined
   idle: ReturnType<typeof setTimeout> | undefined
 }
@@ -690,7 +722,8 @@ export class AcpChatAdapter extends LlmAdapter {
     exited.catch(() => {})
     const chat: ChatProcess = {
       child, agent, cwd, sessionId: '', models: undefined, model: undefined, efforts: undefined, effort: undefined, mcp: undefined, tools, replies: 0, inTurn: false, outcome: undefined,
-      buffered: [], queued: [], waiting: new Map(), reader: undefined, idle: undefined,
+      buffered: [], queued: [], waiting: new Map(), written: new Set(), presented: false, delivery: undefined,
+      reader: undefined, idle: undefined,
     }
     try {
       const mcpServers: McpServer[] = []
@@ -737,6 +770,7 @@ export class AcpChatAdapter extends LlmAdapter {
         const queuedAt = chat.queued.indexOf(call)
         if (queuedAt >= 0) chat.queued.splice(queuedAt, 1)
       }, { once: true })
+      if (tool === PRESENT_TOOL) chat.presented = true
       if (chat.reader === undefined) chat.queued.push(call)
       else chat.reader.calls([call])
     })
@@ -763,6 +797,9 @@ export class AcpChatAdapter extends LlmAdapter {
   /** Begins a vendor turn; its end reaches the reading step, or waits for the next one. */
   private begin(chat: ChatProcess, text: string): void {
     chat.inTurn = true
+    chat.written.clear()
+    chat.presented = false
+    chat.delivery = undefined
     chat.outcome = undefined
     const prompt: AcpContentBlock[] = [{ type: 'text', text }]
     const finish = (outcome: TurnOutcome): void => {
@@ -802,6 +839,22 @@ export class AcpChatAdapter extends LlmAdapter {
     if (chat !== undefined) chat.tools = tools
 
     const results = trailingToolResults(options.messages)
+    const delivery = chat?.delivery
+    const delivered = delivery === undefined ? undefined : results.find(result => result.id === delivery.id)
+    if (chat !== undefined && delivery !== undefined && delivered !== undefined) {
+      // The files are on their cards now; one line names them, which also makes the names open the files.
+      chat.delivery = undefined
+      const writer = new BlockWriter((chunk) => { queue.push(chunk) })
+      const text = delivered.isError
+        ? `(The files could not be attached: ${delivered.text.slice(0, 300)})`
+        : `Delivered ${delivery.names.map(name => `\`${name}\``).join(', ')}.`
+      writer.apply({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } })
+      writer.end()
+      queue.push({ type: 'finish', reason: { kind: 'stop' } })
+      chat.replies = replies + 1
+      this.armIdle(key, chat)
+      return
+    }
     if (results.length > 0 && chat !== undefined && chat.replies === replies && (chat.inTurn || chat.outcome !== undefined)) {
       // DSH ran the shared tools the last step asked for: hand the results back and keep reading the same turn.
       for (const result of results) {
@@ -838,10 +891,13 @@ export class AcpChatAdapter extends LlmAdapter {
       this.armIdle(key, chat)
       throw error
     }
+    const canPresent = chat.mcp !== undefined && chat.tools.some(tool => tool.name === PRESENT_TOOL)
+    const deliver = `call the "${PRESENT_TOOL}" tool of "${MCP_SERVER_NAME}" with their absolute paths, so the person gets file cards that open them and show them in their folder`
     const shared = chat.mcp === undefined
       ? ''
-      : `\n\n(Hypersuperfluid's own tools for this chat are on the MCP server "${MCP_SERVER_NAME}": ${chat.tools.map(tool => tool.name).join(', ')}. Use them when they fit, for example its built-in browser; a call may wait for the person's approval.)`
-    this.begin(chat, `${fresh ? turn.transcript : turn.input}${fresh ? shared : ''}`)
+      : `\n\n(Hypersuperfluid's own tools for this chat are on the MCP server "${MCP_SERVER_NAME}": ${chat.tools.map(tool => tool.name).join(', ')}. Use them when they fit, for example its built-in browser; a call may wait for the person's approval.${canPresent ? ` When you finish files the person asked for, ${deliver}.` : ''})`
+    const reminder = canPresent && !fresh ? `\n\n(If this makes files for the person, ${deliver}.)` : ''
+    this.begin(chat, `${fresh ? turn.transcript : turn.input}${fresh ? shared : reminder}`)
     await this.read(key, chat, replies, queue, options.signal)
   }
 
@@ -877,7 +933,11 @@ export class AcpChatAdapter extends LlmAdapter {
         fail(signal?.reason instanceof Error ? signal.reason : new Error('cancelled'))
       }
       const reader: Reader = {
-        update: (update) => { if (!finished) writer.apply(update) },
+        update: (update) => {
+          if (finished) return
+          for (const path of writtenFiles(update)) chat.written.add(isAbsolute(path) ? path : resolvePath(chat.cwd, path))
+          writer.apply(update)
+        },
         calls: (calls) => {
           if (finished) {
             chat.queued.push(...calls)
@@ -909,6 +969,16 @@ export class AcpChatAdapter extends LlmAdapter {
           const usage = outcome.response.usage
           if (usage !== undefined && usage !== null) {
             queue.push({ type: 'usage', usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, totalTokens: usage.totalTokens } })
+          }
+          const files = chat.presented || !chat.tools.some(tool => tool.name === PRESENT_TOOL) ? [] : finishedFiles(chat.written)
+          if (files.length > 0 && outcome.response.stopReason !== 'max_tokens') {
+            // The vendor wrote files with its own tools but did not deliver them, so DSH never saw them.
+            const id = brandString<ToolCallId>(`hsf_${randomUUID().replaceAll('-', '')}`)
+            chat.delivery = { id, names: files.map(file => basename(file)) }
+            writer.toolCall(id, PRESENT_TOOL, JSON.stringify({ files: files.map(path => ({ path })) }))
+            queue.push({ type: 'finish', reason: { kind: 'tool-calls' } })
+            stepDone()
+            return
           }
           queue.push({ type: 'finish', reason: outcome.response.stopReason === 'max_tokens' ? { kind: 'max-tokens' } : { kind: 'stop' } })
           stepDone()
@@ -951,6 +1021,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
       reject(error)
     })
   })
+}
+
+/**
+ * The written files that still exist as regular files, the latest last, at most {@link MAX_DELIVERED}.
+ * @param written - absolute paths in the order they were written.
+ * @returns the files to deliver.
+ */
+export function finishedFiles(written: Iterable<string>): string[] {
+  const files = [...written].filter((path) => {
+    try {
+      return statSync(path).isFile()
+    } catch {
+      return false
+    }
+  })
+  return files.slice(-MAX_DELIVERED)
 }
 
 function settle(call: SharedCall, result: McpToolResult): void {
