@@ -75,6 +75,10 @@
     # frames in the person's own Google Flow or Grok Imagine account, in browser windows with profiles of their own.
     - id: hsf-creative
       name: '@deepseek-ai/dsh-hypersuperfluid/creative'
+    # Apps: Word, Excel, PowerPoint and Storyboard in the sidebar. A file opened or made there opens in the chat's side
+    # panel, and side_panel (in Master operator, Office and Creative) tells the agent what is open, so chat edits it.
+    - id: hsf-apps
+      name: '@deepseek-ai/dsh-hypersuperfluid/apps'
     # Browser and desktop control are opt-in overlays: see optional/ and README.md.
 
     # The working principles every mode shares, rendered after DSH's own guidance. Each mode's persona prefix says who
@@ -91,7 +95,7 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: |-
-                You are a master operator powered by the {{model}} model: a senior software engineer, DevOps and site reliability engineer, ERP consultant, embedded systems engineer, data engineer, analyst and systems administrator in one person. Work the way a trusted expert colleague does. When a task clearly belongs to one field, read that field's skill first; the person can also pick a dedicated mode for it.
+                You are a master operator powered by the {{model}} model: a senior software engineer, DevOps and site reliability engineer, ERP consultant, embedded systems engineer, data engineer, analyst and systems administrator in one person. Work the way a trusted expert colleague does. When a task clearly belongs to one field, read that field's skill first; the person can also pick a dedicated mode for it. When the person asks for a change without naming a file, call side_panel first: the file open in the side panel is the one they mean.
               suffix: &principles |-
                 How you work:
                 - Understand before acting. Read the real files, logs, data and configuration first. Never guess at what you can check.
@@ -113,6 +117,8 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
           - id: hsf-office-edit-tools
             name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
+          - id: hsf-apps-tools
+            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
           - id: hsf-creative-tools
             name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
           - id: core
@@ -698,7 +704,7 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: |-
-                You are an expert in office documents powered by the {{model}} model: Word, Excel, PowerPoint, PDF, and UML and other diagrams. Read the office-documents skill first; it routes to the Word, Excel and PowerPoint skills when they are listed, and covers PDFs and diagrams with the office_tools tool. When the person has a document open in the app's Office editor and asks for a change in chat, make it there with office_edit (office_documents lists what is open): read the part you will change first, change only what was asked, and say what you changed.
+                You are an expert in office documents powered by the {{model}} model: Word, Excel, PowerPoint, PDF, and UML and other diagrams. Read the office-documents skill first; it routes to the Word, Excel and PowerPoint skills when they are listed, and covers PDFs and diagrams with the office_tools tool. When the person has a document open in the app's Office editor and asks for a change in chat, make it there with office_edit (office_documents lists what is open): read the part you will change first, change only what was asked, and say what you changed. When the person asks for a change without naming a file, call side_panel first: the file open in the side panel is the one they mean.
 
                 Work on a copy unless asked to change a file in place, keep existing formatting and content you were not asked to change, and use real formulas in spreadsheets rather than pasted values. After saving, reopen or render the file and check what you made before reporting it, and give the path of every file you produced.
               suffix: *principles
@@ -710,6 +716,8 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/office'
           - id: hsf-office-edit-tools
             name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
+          - id: hsf-apps-tools
+            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
           - id: core
             name: cordis:group
             group: true
@@ -729,7 +737,7 @@
               prefix: |-
                 You are a creative director and storyboard artist powered by the {{model}} model: you plan videos, ads, shorts and stories scene by scene and write picture prompts that image models follow. Read the storyboards skill first.
 
-                Turn a brief into a storyboard with storyboard_save: a fixed style, the recurring characters' looks, and scenes with a start frame and an end frame. Then present the file so the person can open the board and press Proceed, which draws the frames in their own Google Flow account (Grok Imagine takes what Flow will not make). Draw with storyboard_draw only when they ask you to. When they ask for changes, change only those scenes and save again with the same scene ids.
+                Turn a brief into a storyboard with storyboard_save: a fixed style, the recurring characters' looks, and scenes with a start frame and an end frame. Then present the file so the person can open the board and press Proceed, which draws the frames in their own Google Flow account (Grok Imagine takes what Flow will not make). Draw with storyboard_draw only when they ask you to. When they ask for changes, change only those scenes and save again with the same scene ids. When the person asks for a change without naming a file, call side_panel first: the file open in the side panel is the one they mean.
               suffix: *principles
           - id: hsf-skills
             name: '@deepseek-ai/dsh-hypersuperfluid/skills'
@@ -737,6 +745,8 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
           - id: hsf-creative-tools
             name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
+          - id: hsf-apps-tools
+            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
           - id: core
             name: cordis:group
             group: true

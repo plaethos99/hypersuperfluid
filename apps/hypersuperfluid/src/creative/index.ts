@@ -29,6 +29,8 @@ export interface CreativeService {
   readonly flow: Flow
   readonly grok: Grok
   readonly drawer: StoryboardDrawer
+  /** The storyboards a board in the app is showing now (it asks for their status every few seconds). */
+  openBoards(): string[]
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -37,6 +39,9 @@ declare module '@deepseek-ai/cordis' {
     hsfCreative: CreativeService
   }
 }
+
+/** A board that has not asked for its status for this long is closed (it asks every 10 s at most). */
+const BOARD_STALE_MS = 30_000
 
 /** Cordis plugin name. */
 export const name = 'hsf-creative'
@@ -83,6 +88,7 @@ export function apply(ctx: Context, config: Config): void {
   const grok = new Grok(new ServiceBrowser({
     label: 'Grok Imagine', port: config.grokPort ?? 9460, profile: join(home, 'grok-profile'), home: GROK_URL, ...executable,
   }))
+  const shown = new Map<string, number>()
   const drawer = new StoryboardDrawer({ flow, grok }, { prefer: config.prefer ?? 'flow', captchaWaitMs: (config.captchaWaitSeconds ?? 60) * 1000 })
   ctx.effect(() => () => { drawer.stopAll() }, 'hsf-creative: stop drawing')
 
@@ -106,6 +112,7 @@ export function apply(ctx: Context, config: Config): void {
     route('/api/hsf/creative/status', 'GET', async (url) => {
       const [flowState, grokState] = await Promise.all([flow.state(), grok.state()])
       const path = url.searchParams.get('path')
+      if (path !== null && isAbsolute(path) && isStoryboardPath(path)) shown.set(path, Date.now())
       const run = path === null || path === '' ? undefined : drawer.status(path)
       return Response.json({ flow: flowState, grok: grokState, run: run ?? null }, { headers: { 'cache-control': 'no-store' } })
     })
@@ -130,5 +137,9 @@ export function apply(ctx: Context, config: Config): void {
     })
   })
 
-  ctx.provide('hsfCreative', { flow, grok, drawer })
+  const openBoards = (): string[] => {
+    const now = Date.now()
+    return [...shown].filter(([path, seen]) => now - seen < BOARD_STALE_MS && existsSync(path)).map(([path]) => path)
+  }
+  ctx.provide('hsfCreative', { flow, grok, drawer, openBoards })
 }

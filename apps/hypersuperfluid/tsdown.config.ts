@@ -23,6 +23,8 @@ const host = {
     'office-editor-tools': 'src/office-editor/tools.ts',
     creative: 'src/creative/index.ts',
     'creative-tools': 'src/creative/tools.ts',
+    apps: 'src/apps/index.ts',
+    'apps-tools': 'src/apps/tools.ts',
   },
   outDir: 'lib',
   format: 'esm',

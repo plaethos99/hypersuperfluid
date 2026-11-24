@@ -22,6 +22,7 @@ import { MEDIA_PREVIEW_ID, MediaPreviewBody, mediaPreviewDefinition } from './me
 import { MODEL_PREVIEW_ID, ModelPreviewBody, modelPreviewDefinition } from './model-preview.ts'
 import { OFFICE_EDITOR_ID, OfficeEditorBody, officeEditorDefinition } from './office-editor.ts'
 import { STORYBOARD_ID, StoryboardBody, storyboardDefinition } from './storyboard.ts'
+import { registerApps } from './apps-register.ts'
 import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
 import { THEME_SOURCE, THEME_STYLE, TOKENS } from './theme.ts'
 
@@ -133,6 +134,8 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'hsf-subscriptions', order: 15, label: () => 'Subscriptions',
   }, SubscriptionsSection))
+  // Apps (Word, Excel, PowerPoint, Storyboard): a page in the left sidebar and a tab in the side panel.
+  registerApps(ctx)
   // Extra file views: video and audio, 3D models, the Office editors and storyboards. They wait for the preview plugin, so the
   // brand never does.
   ctx.inject(['documentPreviews'], (previews) => {

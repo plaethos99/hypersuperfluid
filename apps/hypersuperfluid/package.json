@@ -33,7 +33,9 @@
     "./office-editor": "./lib/office-editor.js",
     "./office-editor/tools": "./lib/office-editor-tools.js",
     "./creative": "./lib/creative.js",
-    "./creative/tools": "./lib/creative-tools.js"
+    "./creative/tools": "./lib/creative-tools.js",
+    "./apps": "./lib/apps.js",
+    "./apps/tools": "./lib/apps-tools.js"
   },
   "files": [
     "lib",
@@ -61,7 +63,9 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-theme",
-        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview"
+        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }
   },
@@ -111,7 +115,9 @@
     "@deepseek-ai/dsh-client-ui-settings": "workspace:*",
     "@deepseek-ai/dsh-client-ui-sidebar": "workspace:*",
     "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "workspace:*",
     "@deepseek-ai/dsh-client-ui-theme": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-workspace": "workspace:*",
     "@deepseek-ai/dsh-util-workspace-path": "workspace:*",
     "@types/three": "0.186.0",
     "react": "^18.2.0",

@@ -33,10 +33,10 @@ export const Config: z<Config> = z.object({
 export const OFFICE_EDIT_DESCRIPTION = [
   'Change or read a Word, Excel, PowerPoint or PDF file that is open in the app\'s Office editor, as the person watches.',
   'The script is the body of a function in ONLYOFFICE\'s Office JavaScript API (the API of its macros and plugins), with the global `Api`.',
-  'Word: `var doc = Api.GetDocument()`; `Api.CreateParagraph()`, `p.AddText(…)`, `doc.InsertContent([p])`, `doc.GetElement(i)`, `doc.GetElementsCount()`, `doc.SearchAndReplace({searchString, replaceString})`, `Api.CreateTable(cols, rows)`, `range.SetBold(true)`.',
+  'Word: `var doc = Api.GetDocument()`; `Api.CreateParagraph()`, `p.AddText(…)` (returns a run: `.SetBold(true)`), `doc.Push(p)` to append at the end (`doc.InsertContent([p])` inserts at the cursor), `doc.GetElement(i)`, `doc.GetElementsCount()`, `doc.SearchAndReplace({searchString, replaceString})`, `Api.CreateTable(cols, rows)`, `range.SetBold(true)`.',
   'Excel: `var sheet = Api.GetActiveSheet()`; `sheet.GetRange("A1:C3").SetValue(…)`, `.GetValue()`, `.SetFormula("=SUM(A1:A9)")`, `.SetFillColor(Api.CreateColorFromRGB(…))`, `Api.AddSheet(name)`, `sheet.AddChart(…)`.',
   'PowerPoint: `var pres = Api.GetPresentation()`; `Api.CreateSlide()`, `pres.AddSlide(slide)`, `pres.GetSlideByIndex(i)`, `Api.CreateShape(…)`, `shape.GetDocContent()` for its text.',
-  '`return` a JSON value to read the document (for example its paragraphs\' text or a range\'s values); read before you change. A thrown error comes back as the result.',
+  '`return` a JSON value to read the document (for example its paragraphs\' text or a range\'s values); read before you change. A thrown error comes back as the result. To check a change, read it back with another script: the person sees it at once, so there is no need to reopen the file.',
   'The change can be undone in the editor, and it is saved to the file automatically.',
   'If the file is not open, ask the person to open it (click it in the files pane or a file card); office_documents lists what is open.',
 ].join(' ')
