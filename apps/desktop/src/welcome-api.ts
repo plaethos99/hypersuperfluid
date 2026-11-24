@@ -66,10 +66,12 @@ export interface WelcomeAuthentication {
 }
 
 /**
- * Decide whether a startup or sign-out requires the welcome entry.
- * @param authentication - current account and independently stored API-key facts.
- * @returns true only when neither authentication route is configured.
+ * Decide whether a startup or sign-out requires the welcome entry. Hypersuperfluid never does: it reads its keys from
+ * the portable key file, the environment or Settings, and runs on subscriptions too, so it opens straight into the
+ * workspace instead of a DeepSeek sign-in window. Keys are added in Settings > Models.
+ * @param _authentication - current account and independently stored API-key facts.
+ * @returns false.
  */
-export function needsWelcome(authentication: WelcomeAuthentication): boolean {
-  return !authentication.loggedIn && !authentication.hasApiKey
+export function needsWelcome(_authentication: WelcomeAuthentication): boolean {
+  return false
 }
