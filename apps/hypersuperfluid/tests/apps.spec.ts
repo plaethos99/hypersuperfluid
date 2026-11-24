@@ -8,6 +8,7 @@ import { appFiles, newFilePath } from '../src/apps/index.ts'
 import { parseStoryboard } from '../src/creative/storyboard.ts'
 import { APP_CARDS, appsUrl, relativeFolder, whenText } from '../src/client/apps.ts'
 import { currentSession, folderOf, type SessionRows } from '../src/client/apps-register.ts'
+import { QUIET_ONBOARDING_STEPS, QUIET_PRIORITY } from '../src/client/quiet-start.ts'
 
 /** Reads a stored or deflated zip's entries, enough to check what `zip` writes. */
 function entries(archive: Buffer): Map<string, string> {
@@ -128,5 +129,12 @@ describe('the apps view', () => {
     expect(folderOf(list, 'a')).toBe('C:\\a')
     expect(currentSession({ ...list, byId: { ...list.byId, a: { updatedAt: 1, cwd: 'C:\\a', retainedBy: { mainView: 1 } } } })).toBe('a')
     expect(currentSession({ ids: [], byId: {} })).toBeUndefined()
+  })
+})
+
+describe('no pop-ups at start', () => {
+  it('shadows both first-run steps of DSH, which register at priority 0', () => {
+    expect(QUIET_ONBOARDING_STEPS).toEqual(['welcome-notice', 'deepseek-official'])
+    expect(QUIET_PRIORITY).toBeLessThan(0)
   })
 })

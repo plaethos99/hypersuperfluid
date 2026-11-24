@@ -23,6 +23,7 @@ import { MODEL_PREVIEW_ID, ModelPreviewBody, modelPreviewDefinition } from './mo
 import { OFFICE_EDITOR_ID, OfficeEditorBody, officeEditorDefinition } from './office-editor.ts'
 import { STORYBOARD_ID, StoryboardBody, storyboardDefinition } from './storyboard.ts'
 import { registerApps } from './apps-register.ts'
+import { QUIET_ONBOARDING_STEPS, QUIET_PRIORITY, QuietStep } from './quiet-start.ts'
 import { SUBSCRIPTIONS_STYLE, SubscriptionsSection } from './subscriptions.ts'
 import { THEME_SOURCE, THEME_STYLE, TOKENS } from './theme.ts'
 
@@ -134,6 +135,12 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'hsf-subscriptions', order: 15, label: () => 'Subscriptions',
   }, SubscriptionsSection))
+  // No first-run pop-ups (DSH's welcome notice and DeepSeek sign-in dialog): see quiet-start.ts.
+  for (const id of QUIET_ONBOARDING_STEPS) {
+    ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
+      name: 'settings.onboarding', id, order: id === 'welcome-notice' ? -100 : 0, priority: QUIET_PRIORITY,
+    }, QuietStep))
+  }
   // Apps (Word, Excel, PowerPoint, Storyboard): a page in the left sidebar and a tab in the side panel.
   registerApps(ctx)
   // Extra file views: video and audio, 3D models, the Office editors and storyboards. They wait for the preview plugin, so the
