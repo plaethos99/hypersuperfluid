@@ -35,7 +35,9 @@
     "./creative": "./lib/creative.js",
     "./creative/tools": "./lib/creative-tools.js",
     "./apps": "./lib/apps.js",
-    "./apps/tools": "./lib/apps-tools.js"
+    "./apps/tools": "./lib/apps-tools.js",
+    "./apps/context": "./lib/apps-context.js",
+    "./repo/tools": "./lib/repo-tools.js"
   },
   "files": [
     "lib",

@@ -25,6 +25,8 @@ const host = {
     'creative-tools': 'src/creative/tools.ts',
     apps: 'src/apps/index.ts',
     'apps-tools': 'src/apps/tools.ts',
+    'apps-context': 'src/apps/context.ts',
+    'repo-tools': 'src/repo/tools.ts',
   },
   outDir: 'lib',
   format: 'esm',

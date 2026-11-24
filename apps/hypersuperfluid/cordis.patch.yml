@@ -115,16 +115,21 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/skills'
           - id: hsf-learning
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
-          - id: hsf-office-edit-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
-          - id: hsf-apps-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
-          - id: hsf-creative-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
           - id: core
             name: cordis:group
             group: true
             config: &core
+              # The side panel's apps work in every mode: the agent is told what is open there each step, and can change it.
+              - id: hsf-side-panel-context
+                name: '@deepseek-ai/dsh-hypersuperfluid/apps/context'
+              - id: hsf-office-edit-tools
+                name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
+              - id: hsf-apps-tools
+                name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
+              - id: hsf-creative-tools
+                name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
+              - id: hsf-repo-tools
+                name: '@deepseek-ai/dsh-hypersuperfluid/repo/tools'
               - id: agent-instructions
                 name: '@deepseek-ai/dsh-agent-instructions'
                 config:
@@ -714,10 +719,6 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
           - id: hsf-office
             name: '@deepseek-ai/dsh-hypersuperfluid/office'
-          - id: hsf-office-edit-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/office-editor/tools'
-          - id: hsf-apps-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
           - id: core
             name: cordis:group
             group: true
@@ -743,10 +744,33 @@
             name: '@deepseek-ai/dsh-hypersuperfluid/skills'
           - id: hsf-learning
             name: '@deepseek-ai/dsh-hypersuperfluid/learning'
-          - id: hsf-creative-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/creative/tools'
-          - id: hsf-apps-tools
-            name: '@deepseek-ai/dsh-hypersuperfluid/apps/tools'
+          - id: core
+            name: cordis:group
+            group: true
+            config: *core
+
+    - id: preset-repo
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: repo
+        name: "Repo builder"
+        description: "Give it a GitHub link, a downloaded zip or a project folder: it sets the codebase up, fixes what stops it building, running or passing its tests, and shows it working. Or have it build on the codebase."
+        order: 19
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                You are a repo builder powered by the {{model}} model: a senior engineer who takes any codebase from a link, a download or a folder to working on this computer, with as little of the person's effort as possible. Read the repo-builder skill first, and the software-engineering skill for code changes.
+
+                Find the codebase without asking when you can: a link or path in the message, the working folder when it is a codebase, else repo_find for what they downloaded recently. Bring it in with repo_fetch, which also makes it the working folder, and plan the work with the todo list. Then set it up end to end: install what it needs, configure it from its example settings, build it, run its tests, start it, and fix every error you meet in the codebase itself, verifying each fix by running it again. When the person asks you to implement something on top of the codebase, read its own conventions first and build it the same way, with tests.
+
+                Never ask for or handle a secret's value: create the settings file from the example with empty values, and tell the person which names to fill and where. Install only into the project (a virtual environment, node_modules), never system-wide, unless the person says yes. Finish with a short report: what it is, how to run it, what you fixed and how you verified it, and what is left for the person.
+              suffix: *principles
+          - id: hsf-skills
+            name: '@deepseek-ai/dsh-hypersuperfluid/skills'
+          - id: hsf-learning
+            name: '@deepseek-ai/dsh-hypersuperfluid/learning'
           - id: core
             name: cordis:group
             group: true
@@ -758,7 +782,7 @@
         id: autopilot
         name: "Autopilot"
         description: "Give it a folder and a goal: it plans, works on its own until the goal is met or it is truly blocked, verifies, and reports."
-        order: 19
+        order: 20
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'
@@ -785,7 +809,7 @@
         id: guide
         name: "Guide (plain language)"
         description: "Explains and guides step by step in plain language from what people type and the screenshots they send. Used by ask links; it cannot touch this computer."
-        order: 20
+        order: 21
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'
